@@ -1,0 +1,4 @@
+import joblib
+
+# Misal model-mu bernama svm_model
+joblib.dump(svm_model, "model_svm_berita.pkl")
