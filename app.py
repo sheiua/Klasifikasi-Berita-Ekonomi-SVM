@@ -1,57 +1,66 @@
+# app.py
+
 import streamlit as st
-from openpyxl import load_workbook
-import xlwt
-import io
+import pandas as pd
 import joblib
+from datetime import datetime
+from parsers import parse_portal_antara, parse_portal_viva, parse_portal_lampost, parse_portal_radar, parse_portal_sinar
 
-# Load model SVM (pastikan modelnya sudah dilatih & disimpan sebagai .pkl)
-@st.cache_resource
-def load_model():
-    return joblib.load("model_svm_berita.pkl")
+# ✅ Load model
+model = joblib.load("model_svm_berita.pkl")
 
-model = load_model()
+# ✅ UI
+st.title("Berita Ekonomi Scraper & Klasifikasi")
 
-st.title("📑 Filter Berita Ekonomi")
+# Pilih portal
+portal = st.selectbox(
+    "Pilih Portal Berita:",
+    ["Antara News Lampung", "Viva Lampung", "Lampung POST", "Radar Lampung", "Sinar Lampung"]
+)
 
-uploaded_file = st.file_uploader("Upload file Berita Ekonomi (.xlsx)", type="xlsx")
+# Input keyword
+keyword = st.text_input("Masukkan keyword pencarian", value="ekonomi")
 
-if uploaded_file:
-    wb = load_workbook(uploaded_file, data_only=True)
-    ws = wb.active
-    rows = list(ws.iter_rows(values_only=True))
+# Rentang tanggal
+start_date = st.date_input("Tanggal mulai", value=pd.to_datetime("2025-07-01"))
+end_date = st.date_input("Tanggal akhir", value=pd.to_datetime("2025-07-31"))
 
-    header = [str(h) for h in rows[0]]
-    data_rows = rows[1:]
+if st.button("Mulai Scraping & Klasifikasi"):
+    st.info(f"Scraping berita dari {portal}...")
 
-    idx_kolom5 = header.index("5. APA yang terjadi pada fenomena ekonomi yang ditemukan ?")
-
-    hasil = []
-    for row in data_rows:
-        teks = str(row[idx_kolom5]) if row[idx_kolom5] is not None else ""
-        pred = model.predict([teks])[0]
-        if pred == 1:
-            hasil.append(row)
-
-    if hasil:
-        wb_out = xlwt.Workbook()
-        ws_out = wb_out.add_sheet("Berita_Ekonomi_Saja")
-
-        for j, kol in enumerate(header):
-            ws_out.write(0, j, kol)
-
-        for i, baris in enumerate(hasil, 1):
-            for j, val in enumerate(baris):
-                ws_out.write(i, j, val)
-
-        buf = io.BytesIO()
-        wb_out.save(buf)
-        buf.seek(0)
-
-        st.download_button(
-            "📥 Unduh Hanya Berita Ekonomi",
-            data=buf,
-            file_name="berita_ekonomi_saja.xls",
-            mime="application/vnd.ms-excel"
-        )
+    if portal == "Antara News Lampung":
+        hasil = parse_portal_antara(keyword, start_date, end_date)
+    elif portal == "Viva Lampung":
+        hasil = parse_portal_viva(keyword, start_date, end_date)
+    elif portal == "Lampung POST":
+        hasil = parse_portal_lampost(keyword, start_date, end_date)
+    elif portal == "Radar Lampung":
+        hasil = parse_portal_radar(keyword, start_date, end_date)
+    elif portal == "Sinar Lampung":
+        hasil = parse_portal_sinar(keyword, start_date, end_date)
     else:
-        st.warning("Tidak ada berita ekonomi yang terdeteksi dalam file ini!")
+        hasil = []
+
+    if len(hasil) == 0:
+        st.warning("Tidak ada data ditemukan.")
+    else:
+        # Convert ke DataFrame
+        df = pd.DataFrame(hasil)
+
+        # Prediksi kolom 'teks'
+        df['label'] = model.predict(df['teks'])
+
+        # Filter hanya Ekonomi (label = 1)
+        df_ekonomi = df[df['label'] == 1]
+
+        st.success(f"Jumlah berita ekonomi: {len(df_ekonomi)}")
+
+        # Tampilkan tabel
+        st.dataframe(df_ekonomi[['link', 'tanggal', 'teks']])
+
+        # Download Excel
+        output_file = "Berita_Ekonomi.xlsx"
+        df_ekonomi.to_excel(output_file, index=False)
+
+        with open(output_file, "rb") as f:
+            st.download_button("📥 Download Hasil Berita Ekonomi", f, file_name="Berita_Ekonomi.xlsx")
