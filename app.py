@@ -2,13 +2,7 @@ import streamlit as st
 import pandas as pd
 import joblib
 from datetime import datetime
-from parsers import (
-    parse_portal_antara,
-    parse_portal_viva,
-    parse_portal_lampost,
-    parse_portal_radar,
-    parse_portal_sinar
-)
+from parsers import ( parse_portal_antara, parse_portal_viva, parse_portal_lampost, parse_portal_radar, parse_portal_sinar)
 
 # ✅ Load model
 @st.cache_resource
