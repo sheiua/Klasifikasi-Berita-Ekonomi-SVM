@@ -3,7 +3,6 @@
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
-import
 
 # Contoh parser dummy untuk Antara News Lampung
 def parse_portal_antara(keyword, start_date, end_date):
