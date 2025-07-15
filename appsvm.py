@@ -39,11 +39,7 @@ if st.button("🚀 Mulai Scraping & Klasifikasi"):
 
     # Mapping portal ke fungsi parser
     parser_map = {
-        "Antara News Lampung": parse_portal_antara,
-        "Viva Lampung": parse_portal_viva,
-        "Lampung POST": parse_portal_lampost,
-        "Radar Lampung": parse_portal_radar,
-        "Sinar Lampung": parse_portal_sinar
+        "Antara News Lampung": parse_portal_antara
     }
 
     parse_function = parser_map.get(portal)
