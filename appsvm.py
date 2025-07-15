@@ -4,11 +4,7 @@ import joblib
 from datetime import datetime
 from text_preprocessor import TextPreprocessor
 from parsers import (
-    parse_portal_antara,
-    parse_portal_viva,
-    parse_portal_lampost,
-    parse_portal_radar,
-    parse_portal_sinar
+    parse_portal_antara
 )
 
 # ✅ Load model
