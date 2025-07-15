@@ -53,10 +53,14 @@ def parse_portal_antara(keyword, start_date, end_date):
                     teks = " ".join(p.get_text(strip=True) for p in isi_div.find_all("p")) if isi_div else ""
 
                     time_tag = artikel.find("time")
-                    if time_tag and time_tag.has_attr("datetime"):
+                    if time_tag:
                         try:
-                            tanggal = datetime.strptime(time_tag["datetime"], "%Y-%m-%dT%H:%M:%S%z").date()
-                        except:
+                            if time_tag.has_attr("datetime"):
+                                tanggal = datetime.strptime(time_tag["datetime"], "%Y-%m-%dT%H:%M:%S%z").date()
+                            else:
+                                tanggal = datetime.strptime(time_tag.get_text(strip=True), "%d %B %Y").date()
+                        except Exception as e:
+                            print(f"[DEBUG] Gagal parsing tanggal: {e}")
                             tanggal = datetime.today().date()
                     else:
                         tanggal = datetime.today().date()
@@ -65,6 +69,8 @@ def parse_portal_antara(keyword, start_date, end_date):
                         print("[DEBUG] Link:", full_link)
                         print("[DEBUG] Tanggal:", tanggal)
                         print("[DEBUG] Teks potong:", teks[:80])
+                        if not (start_date <= tanggal <= end_date):
+                            print(f"[SKIP] Di luar rentang: {tanggal} (rentang: {start_date} s.d. {end_date})")
 
                     if start_date <= tanggal <= end_date:
                         hasil.append({"link": full_link, "tanggal": tanggal, "teks": teks})
@@ -80,5 +86,7 @@ def parse_portal_antara(keyword, start_date, end_date):
             break
 
         page += 1
+        if DEBUG_MODE and page > 2:
+            break  # batasi saat debug agar cepat
 
     return hasil
