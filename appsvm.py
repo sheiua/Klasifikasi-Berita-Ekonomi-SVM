@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import joblib
 from datetime import datetime
+from text_preprocessor import TextPreprocessor
 from parsers import (
     parse_portal_antara,
     parse_portal_viva,
