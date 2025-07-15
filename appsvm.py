@@ -27,8 +27,8 @@ portal = st.selectbox(
     ["Antara News Lampung", "Viva Lampung", "Lampung POST", "Radar Lampung", "Sinar Lampung"]
 )
 
-# Input keyword
-keyword = st.text_input("🔍 Masukkan keyword pencarian:", value="ekonomi")
+# Input keyword (opsional)
+keyword = st.text_input("🔍 Masukkan keyword pencarian (opsional):", value="")
 
 # Rentang tanggal
 col1, col2 = st.columns(2)
@@ -51,37 +51,41 @@ if st.button("🚀 Mulai Scraping & Klasifikasi"):
     }
 
     parse_function = parser_map.get(portal)
-    hasil = parse_function(keyword, start_date, end_date) if parse_function else []
+    hasil = parse_function(keyword if keyword.strip() else None, start_date, end_date)
 
+    # ✅ Cek hasil scraping
     if not hasil:
         st.warning("⚠️ Tidak ada artikel ditemukan dalam rentang waktu tersebut.")
-    else:
-        # Convert ke DataFrame
-        df = pd.DataFrame(hasil)
+        st.stop()
 
-        # Pastikan kolom teks ada
-        if "teks" not in df.columns or df["teks"].isnull().all():
-            st.error("❌ Tidak bisa klasifikasi karena tidak ada teks artikel.")
-        else:
-            # Prediksi label
-            df['label'] = model.predict(df['teks'])
+    df = pd.DataFrame(hasil)
+    st.subheader("📋 Hasil Scraping")
+    st.write("Jumlah artikel ditemukan:", len(df))
+    st.dataframe(df.head())
 
-            # Filter hanya ekonomi (label == 1)
-            df_ekonomi = df[df['label'] == 1]
+    if "teks" not in df.columns or df["teks"].isnull().all() or df["teks"].str.strip().eq("").all():
+        st.error("❌ Semua teks kosong. Scraping gagal ambil isi artikel.")
+        st.stop()
 
-            st.success(f"✅ Jumlah berita bertopik ekonomi: {len(df_ekonomi)}")
+    # ✅ Prediksi label ekonomi
+    df['label'] = model.predict(df['teks'])
 
-            if not df_ekonomi.empty:
-                # Tampilkan
-                st.dataframe(df_ekonomi[['tanggal', 'link', 'teks']])
+    # Filter hanya ekonomi (label == 1)
+    df_ekonomi = df[df['label'] == 1]
 
-                # Download Excel
-                output_file = "Berita_Ekonomi.xlsx"
-                df_ekonomi.to_excel(output_file, index=False)
+    st.success(f"✅ Jumlah berita bertopik ekonomi: {len(df_ekonomi)}")
 
-                with open(output_file, "rb") as f:
-                    st.download_button(
-                        "📥 Download Excel Berita Ekonomi",
-                        f,
-                        file_name="Berita_Ekonomi.xlsx"
-                    )
+    if not df_ekonomi.empty:
+        # Tampilkan
+        st.dataframe(df_ekonomi[['tanggal', 'link', 'teks']])
+
+        # Download Excel
+        output_file = "Berita_Ekonomi.xlsx"
+        df_ekonomi.to_excel(output_file, index=False)
+
+        with open(output_file, "rb") as f:
+            st.download_button(
+                "📥 Download Excel Berita Ekonomi",
+                f,
+                file_name="Berita_Ekonomi.xlsx"
+            )
