@@ -59,9 +59,9 @@ def parse_portal_antara(keyword=None, start_date=None, end_date=None, max_pages=
             tanggal = get_tanggal(soup)
             teks = get_teks(soup)
 
-            if start_date and end_date:
-                if tanggal is None or not (start_date <= tanggal <= end_date):
-                    continue
+            if start_date and end_date and not (start_date <= tanggal <= end_date):
+                print("⏭️ Lewat: Di luar rentang tanggal")
+                continue
 
             results.append({
                 "link": link,
@@ -78,9 +78,9 @@ def parse_portal_antara(keyword=None, start_date=None, end_date=None, max_pages=
 
 #Viva Lampung
 def parse_portal_viva(keyword=None, start_date=None, end_date=None, max_pages=10):
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-    }
+    headers = {"User-Agent": "Mozilla/5.0"}
+    results = []
+    visited_links = set()
 
     def get_links():
         base_url = f"https://lampung.viva.co.id/search?q={keyword}&page=" if keyword else "https://lampung.viva.co.id/berita?page="
@@ -91,17 +91,14 @@ def parse_portal_viva(keyword=None, start_date=None, end_date=None, max_pages=10
             print(f"🔎 Mengambil halaman: {url}")
             try:
                 res = requests.get(url, headers=headers, timeout=10)
-                soup = BeautifulSoup(res.content, 'html.parser')
+                soup = BeautifulSoup(res.content, "html.parser")
+                link_tags = soup.find_all("a", class_="article-list-title")
 
-                found = soup.find_all("a", class_="article-list-title")
-                if not found:
-                    print("🚫 Tidak ada artikel di halaman ini.")
-                    break
-
-                for a in found:
-                    href = a.get("href")
-                    if href and href.startswith("https://lampung.viva.co.id/berita/"):
+                for tag in link_tags:
+                    href = tag.get("href")
+                    if href and href.startswith("https://lampung.viva.co.id/"):
                         links.append(href)
+
             except Exception as e:
                 print(f"[ERROR] Gagal ambil halaman: {e}")
                 continue
@@ -126,18 +123,10 @@ def parse_portal_viva(keyword=None, start_date=None, end_date=None, max_pages=10
                 if len(parts) > 1:
                     tanggal_text = parts[1].strip()
                     bulan_map = {
-                        'Januari': 'January',
-                        'Februari': 'February',
-                        'Maret': 'March',
-                        'April': 'April',
-                        'Mei': 'May',
-                        'Juni': 'June',
-                        'Juli': 'July',
-                        'Agustus': 'August',
-                        'September': 'September',
-                        'Oktober': 'October',
-                        'November': 'November',
-                        'Desember': 'December'
+                        'Januari': 'January', 'Februari': 'February', 'Maret': 'March',
+                        'April': 'April', 'Mei': 'May', 'Juni': 'June', 'Juli': 'July',
+                        'Agustus': 'August', 'September': 'September', 'Oktober': 'October',
+                        'November': 'November', 'Desember': 'December'
                     }
                     for indo, eng in bulan_map.items():
                         if indo in tanggal_text:
@@ -147,35 +136,41 @@ def parse_portal_viva(keyword=None, start_date=None, end_date=None, max_pages=10
         except:
             pass
 
-        return None
+        return datetime.today().date()  # fallback
 
-    def get_teks(soup):
+    def parse_teks(soup):
         try:
             isi = soup.find("div", class_="article-detail-body")
-            return isi.get_text(" ", strip=True) if isi else ""
+            return " ".join(p.get_text(strip=True) for p in isi.find_all("p")) if isi else ""
         except:
             return ""
 
-    result = []
     links = get_links()
 
     for i, link in enumerate(links):
-        try:
-            res = requests.get(link, headers=headers, timeout=10)
-            soup = BeautifulSoup(res.content, 'html.parser')
+        if link in visited_links:
+            continue
+        visited_links.add(link)
 
+        try:
+            r = requests.get(link, headers=headers, timeout=10)
+            if r.status_code != 200:
+                continue
+
+            soup = BeautifulSoup(r.content, "html.parser")
             tanggal = parse_tanggal(soup)
-            teks = get_teks(soup)
+            teks = parse_teks(soup)
 
             print(f"\n🔗 [{i+1}] {link}")
             print(f"📅 Tanggal: {tanggal}")
-            print(f"📝 Teks (potong): {teks[:80]}...")
+            print(f"📝 Teks (potong): {teks[:100]}...")
 
-            if not tanggal or (start_date and end_date and not (start_date <= tanggal <= end_date)):
-                print("⏭️ Lewat: Tidak valid atau di luar rentang tanggal")
+            # Validasi tanggal
+            if start_date and end_date and not (start_date <= tanggal <= end_date):
+                print("⏭️ Lewat: Di luar rentang tanggal")
                 continue
 
-            result.append({
+            results.append({
                 "link": link,
                 "tanggal": tanggal,
                 "teks": teks
@@ -187,4 +182,4 @@ def parse_portal_viva(keyword=None, start_date=None, end_date=None, max_pages=10
             print(f"[ERROR] Gagal scraping artikel: {e}")
             continue
 
-    return result
+    return results
