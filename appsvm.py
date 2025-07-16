@@ -5,75 +5,68 @@ from datetime import datetime
 from text_preprocessor import TextPreprocessor
 from parsers import parse_portal_antara
 
-# ✅ Load model
+# ✅ Load model klasifikasi
 @st.cache_resource
 def load_model():
     return joblib.load("model_berita_svm1.pkl")
 
 model = load_model()
 
-# ✅ UI
-st.title("📡 Scraper & Klasifikasi Berita Ekonomi Lampung")
+# ✅ Judul aplikasi
+st.title("📡 Scraper & Klasifikasi Berita Ekonomi - Antara News Lampung")
 
-# Pilih portal
+# ✅ Pilih portal (sementara 1 dulu)
 portal = st.selectbox(
     "📰 Pilih Portal Berita:",
-    ["Antara News Lampung"]  # Hanya aktifkan Antara dulu
+    ["Antara News Lampung"]
 )
 
-# Input keyword (opsional)
+# ✅ Keyword opsional
 keyword = st.text_input("🔍 Masukkan keyword pencarian (opsional):", value="")
 
-# Rentang tanggal
+# ✅ Rentang tanggal
 col1, col2 = st.columns(2)
 with col1:
     start_date = st.date_input("📅 Tanggal mulai", value=datetime(2024, 1, 1))
 with col2:
-    end_date = st.date_input("📅 Tanggal akhir", value=datetime(2024, 12, 31))
+    end_date = st.date_input("📅 Tanggal akhir", value=datetime(2025, 12, 31))
 
-# Tombol aksi
+# ✅ Tombol proses
 if st.button("🚀 Mulai Scraping & Klasifikasi"):
-    st.info(f"Scraping berita dari: **{portal}** ... Mohon tunggu ⏳")
+    st.info("🔄 Mengambil dan memproses berita... Mohon tunggu beberapa saat ⏳")
 
-    # Hanya Antara aktif sementara
-    if portal == "Antara News Lampung":
-        hasil = parse_portal_antara(
-            keyword if keyword.strip() else None,
-            start_date,
-            end_date,
-            max_pages=15  # Ubah sesuai kebutuhan
-        )
-    else:
-        hasil = []
+    hasil = parse_portal_antara(
+        keyword if keyword.strip() else None,
+        start_date,
+        end_date,
+        max_pages=15  # Bisa kamu ubah sesuai kebutuhan
+    )
 
-    # ✅ Cek hasil scraping
     if not hasil:
-        st.warning("⚠️ Tidak ada artikel ditemukan dalam rentang waktu tersebut.")
-        st.write("🔎 Tips: Coba perpanjang tanggal atau gunakan keyword.")
+        st.warning("⚠️ Tidak ada artikel ditemukan dalam rentang waktu tersebut. Coba gunakan keyword atau perpanjang rentang tanggal.")
         st.stop()
-    else:
-        st.success(f"✅ Artikel ditemukan: {len(hasil)}")
 
     df = pd.DataFrame(hasil)
     st.subheader("📋 Hasil Scraping")
-    st.dataframe(df[['tanggal', 'link']])
+    st.write(f"Jumlah artikel ditemukan: {len(df)}")
+    st.dataframe(df[['tanggal', 'link']].head())
 
+    # Cek isi teks
     if "teks" not in df.columns or df["teks"].isnull().all() or df["teks"].str.strip().eq("").all():
-        st.error("❌ Semua teks kosong. Scraping gagal ambil isi artikel.")
+        st.error("❌ Tidak ada isi artikel yang valid untuk diklasifikasi.")
         st.stop()
 
-    # ✅ Prediksi label ekonomi
+    # ✅ Prediksi ekonomi (label 1)
     df['label'] = model.predict(df['teks'])
-
-    # Filter hanya ekonomi (label == 1)
     df_ekonomi = df[df['label'] == 1]
 
-    st.success(f"💼 Jumlah berita bertopik ekonomi: {len(df_ekonomi)}")
+    st.success(f"✅ Jumlah berita bertopik ekonomi: {len(df_ekonomi)}")
 
     if not df_ekonomi.empty:
+        st.subheader("📄 Daftar Berita Ekonomi")
         st.dataframe(df_ekonomi[['tanggal', 'link', 'teks']])
 
-        # Download Excel
+        # ✅ Simpan Excel
         output_file = "Berita_Ekonomi.xlsx"
         df_ekonomi.to_excel(output_file, index=False)
 
