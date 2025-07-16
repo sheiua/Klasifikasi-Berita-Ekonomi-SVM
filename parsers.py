@@ -2,24 +2,20 @@ import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
 import time
-import re
 
-# DEBUG: Aktifkan mode debug scraping (True/False)
 DEBUG_MODE = True
 
-# Parser untuk Antara News Lampung
 def parse_portal_antara(keyword, start_date, end_date):
-    from bs4 import BeautifulSoup
-    import requests
-    from datetime import datetime
-    import time
-
     hasil = []
     headers = {"User-Agent": "Mozilla/5.0"}
 
-    # STEP 1: Ambil semua link pencarian
+    # STEP 1: Ambil semua link artikel
     def get_links(keyword, max_pages=15):
-        base_url = f"https://lampung.antaranews.com/search?q={keyword}&page="
+        if keyword:
+            base_url = f"https://lampung.antaranews.com/search?q={keyword}&page="
+        else:
+            base_url = f"https://lampung.antaranews.com/terkini?page="
+
         links = []
         for page in range(1, max_pages + 1):
             url = base_url + str(page)
@@ -30,7 +26,10 @@ def parse_portal_antara(keyword, start_date, end_date):
                 for h3 in h3_tags:
                     a = h3.find('a', href=True)
                     if a and 'berita' in a['href']:
-                        links.append(a['href'])
+                        href = a['href']
+                        if not href.startswith("http"):
+                            href = "https://lampung.antaranews.com" + href
+                        links.append(href)
             except Exception as e:
                 print(f"[ERROR] Gagal ambil halaman {url}: {e}")
                 break
@@ -71,7 +70,10 @@ def parse_portal_antara(keyword, start_date, end_date):
                 "tanggal": tanggal,
                 "teks": teks
             })
-            print(f"[{len(hasil)}] {tanggal} - {link}")
+
+            if DEBUG_MODE:
+                print(f"[{len(hasil)}] {tanggal} - {link}")
+                print(f"[DEBUG] Contoh isi: {teks[:80]}")
 
             time.sleep(1)
         except Exception as e:
