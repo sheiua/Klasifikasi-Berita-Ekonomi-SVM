@@ -81,109 +81,59 @@ def parse_portal_antara(keyword=None, start_date=None, end_date=None, max_pages=
     return results
 
 #Viva Lampung
-def parse_portal_viva(keyword=None, start_date=None, end_date=None, max_pages=10):
+def parse_portal_lampungpro(keyword=None, start_date=None, end_date=None, max_pages=10):
     headers = {"User-Agent": "Mozilla/5.0"}
     results = []
-    visited_links = set()
 
-    def get_links():
-        base_url = f"https://lampung.viva.co.id/search?q={keyword}&page=" if keyword else "https://lampung.viva.co.id/berita?page="
-        links = []
-
-        for page in range(1, max_pages + 1):
-            url = base_url + str(page)
-            print(f"🔎 Mengambil halaman: {url}")
-            try:
-                res = requests.get(url, headers=headers, timeout=10)
-                soup = BeautifulSoup(res.content, "html.parser")
-                link_tags = soup.find_all("a", class_="article-list-title")
-
-                for tag in link_tags:
-                    href = tag.get("href")
-                    if href and href.startswith("https://lampung.viva.co.id/"):
-                        links.append(href)
-
-            except Exception as e:
-                print(f"[ERROR] Gagal ambil halaman: {e}")
-                continue
-
-        print(f"✅ Total link ditemukan: {len(links)}")
-        return links
-
-    def parse_tanggal(soup):
-        try:
-            meta = soup.find("meta", {"property": "article:published_time"})
-            if meta:
-                date_str = meta["content"].split("T")[0]
-                return datetime.strptime(date_str, "%Y-%m-%d").date()
-        except:
-            pass
+    for page in range(1, max_pages + 1):
+        url = f"https://lampungpro.co/search/{keyword or ''}?page={page}"
+        print(f"[LAMPUNGPRO] Mengambil halaman: {url}")
 
         try:
-            waktu_div = soup.find("div", class_="article-time")
-            if waktu_div:
-                text = waktu_div.get_text(strip=True)
-                parts = text.split("–")[0].split(",")
-                if len(parts) > 1:
-                    tanggal_text = parts[1].strip()
-                    bulan_map = {
-                        'Januari': 'January', 'Februari': 'February', 'Maret': 'March',
-                        'April': 'April', 'Mei': 'May', 'Juni': 'June', 'Juli': 'July',
-                        'Agustus': 'August', 'September': 'September', 'Oktober': 'October',
-                        'November': 'November', 'Desember': 'December'
-                    }
-                    for indo, eng in bulan_map.items():
-                        if indo in tanggal_text:
-                            tanggal_text = tanggal_text.replace(indo, eng)
-                            break
-                    return datetime.strptime(tanggal_text, "%d %B %Y").date()
-        except:
-            pass
+            res = requests.get(url, headers=headers, timeout=10)
+            soup = BeautifulSoup(res.content, "html.parser")
+            cards = soup.find_all("div", class_="col-md-4")
 
-        return datetime.today().date()  # fallback
+            for card in cards:
+                a = card.find("a", href=True)
+                if not a:
+                    continue
+                link = a["href"]
+                if not link.startswith("http"):
+                    link = "https://lampungpro.co" + link
 
-    def parse_teks(soup):
-        try:
-            isi = soup.find("div", class_="article-detail-body")
-            return " ".join(p.get_text(strip=True) for p in isi.find_all("p")) if isi else ""
-        except:
-            return ""
+                try:
+                    detail = requests.get(link, headers=headers, timeout=10)
+                    soup_detail = BeautifulSoup(detail.content, "html.parser")
 
-    links = get_links()
+                    # Tanggal
+                    tanggal_div = soup_detail.find("div", class_="news-date")
+                    if tanggal_div:
+                        tanggal_text = tanggal_div.get_text(strip=True)
+                        tanggal = datetime.strptime(tanggal_text, "%d %B %Y").date()
+                    else:
+                        tanggal = None
 
-    for i, link in enumerate(links):
-        if link in visited_links:
-            continue
-        visited_links.add(link)
+                    # Konten
+                    konten_div = soup_detail.find("div", class_="news-content")
+                    teks = konten_div.get_text(" ", strip=True) if konten_div else ""
 
-        try:
-            r = requests.get(link, headers=headers, timeout=10)
-            if r.status_code != 200:
-                continue
+                    if tanggal and start_date <= tanggal <= end_date:
+                        results.append({
+                            "link": link,
+                            "tanggal": tanggal,
+                            "teks": teks
+                        })
+                        print(f"[{len(results)}] {tanggal} - {link}")
 
-            soup = BeautifulSoup(r.content, "html.parser")
-            tanggal = parse_tanggal(soup)
-            teks = parse_teks(soup)
+                    time.sleep(1)
 
-            print(f"\n🔗 [{i+1}] {link}")
-            print(f"📅 Tanggal: {tanggal}")
-            print(f"📝 Teks (potong): {teks[:100]}...")
-
-            # Validasi tanggal
-            if start_date and end_date and not (start_date <= tanggal <= end_date):
-                print("⏭️ Lewat: Di luar rentang tanggal")
-                continue
-
-            results.append({
-                "link": link,
-                "tanggal": tanggal,
-                "teks": teks
-            })
-
-            time.sleep(1)
+                except Exception as e:
+                    print(f"[ERROR] Gagal akses artikel {link}: {e}")
 
         except Exception as e:
-            print(f"[ERROR] Gagal scraping artikel: {e}")
+            print(f"[ERROR] Gagal akses halaman pencarian: {e}")
             continue
 
     return results
+
