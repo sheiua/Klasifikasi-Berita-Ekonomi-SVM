@@ -21,7 +21,7 @@ st.title("📡 Scraper & Klasifikasi Berita Ekonomi Lampung")
 # ✅ Pilih portal
 portal = st.selectbox(
     "📰 Pilih Portal Berita:",
-    ["Antara News Lampung", "Viva Lampung"]
+    ["Antara News Lampung", "LampungPro"]
 )
 
 # ✅ Keyword opsional
