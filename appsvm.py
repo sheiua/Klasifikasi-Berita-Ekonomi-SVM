@@ -5,7 +5,7 @@ from datetime import datetime
 from text_preprocessor import TextPreprocessor
 from parsers import (
     parse_portal_antara,
-    parse_portal_viva  # ← Tambah parser viva
+    parse_portal_lampungpro
 )
 
 # ✅ Load model klasifikasi
@@ -41,7 +41,7 @@ if st.button("🚀 Mulai Scraping & Klasifikasi"):
     # Mapping parser
     parser_map = {
         "Antara News Lampung": parse_portal_antara,
-        "Viva Lampung": parse_portal_viva
+        "Lampungpro": parse_portal_lampungpro
     }
 
     parse_function = parser_map.get(portal)
