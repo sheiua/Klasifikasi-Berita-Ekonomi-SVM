@@ -10,7 +10,7 @@ from parsers import (
 # ✅ Load model
 @st.cache_resource
 def load_model():
-    return joblib.load("model_berita_svm.pkl")
+    return joblib.load("model_berita_svm1.pkl")
 
 model = load_model()
 
