@@ -4,7 +4,7 @@ from datetime import datetime, date
 import time
 import pandas as pd
 
-# Parser final untuk Antara News Lampung
+# Parser final debug-friendly untuk Antara News Lampung
 def parse_portal_antara(keyword=None, start_date=None, end_date=None, max_pages=10):
     headers = {"User-Agent": "Mozilla/5.0"}
     results = []
@@ -40,14 +40,17 @@ def parse_portal_antara(keyword=None, start_date=None, end_date=None, max_pages=
     def get_tanggal(soup):
         try:
             raw = soup.find('meta', {'itemprop': 'datePublished'})['content']
-            return datetime.strptime(raw, '%a, %d %b %Y %H:%M:%S %z').date()
-        except:
+            tanggal = datetime.strptime(raw, '%a, %d %b %Y %H:%M:%S %z').date()
+            return tanggal
+        except Exception as e:
+            print(f"[WARN] Gagal parsing tanggal: {e}")
             return None
 
     def get_teks(soup):
         try:
             konten = soup.find('div', itemprop="articleBody")
-            return konten.get_text(" ", strip=True).split("Baca juga:")[0]
+            teks = konten.get_text(" ", strip=True).split("Baca juga:")[0]
+            return teks
         except:
             return ""
 
@@ -62,12 +65,16 @@ def parse_portal_antara(keyword=None, start_date=None, end_date=None, max_pages=
             teks = get_teks(soup)
 
             print(f"\n🔗 [{i+1}] {link}")
-            print(f"📅 Tanggal: {tanggal}")
-            print(f"📝 Teks (potong): {teks[:100]}...")
+            print(f"📅 Ditemukan: {tanggal}")
+            print(f"📅 Rentang: {start_date} s.d. {end_date}")
 
+            # ✅ Filter tanggal aktif
             if start_date and end_date:
-                if tanggal is None or not (start_date <= tanggal <= end_date):
-                    print("⏭️ Lewat: Di luar rentang tanggal")
+                if tanggal is None:
+                    print("⏭️ Lewat: Tanggal kosong")
+                    continue
+                if not (start_date <= tanggal <= end_date):
+                    print("⏭️ Lewat: Di luar rentang")
                     continue
 
             results.append({
@@ -82,4 +89,5 @@ def parse_portal_antara(keyword=None, start_date=None, end_date=None, max_pages=
             print(f"[ERROR] Gagal scraping artikel: {e}")
             continue
 
+    print(f"✅ Total artikel sesuai tanggal: {len(results)}")
     return results
