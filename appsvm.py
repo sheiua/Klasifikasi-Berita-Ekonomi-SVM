@@ -43,7 +43,13 @@ if st.button("🚀 Mulai Scraping & Klasifikasi"):
     }
 
     parse_function = parser_map.get(portal)
-    hasil = parse_function(keyword if keyword.strip() else None, start_date, end_date)
+    hasil = parse_portal_antara(
+    keyword if keyword.strip() else None,
+    start_date,
+    end_date,
+    max_pages=15
+)
+
 
     # ✅ Cek hasil scraping
     if not hasil:
