@@ -1,93 +1,85 @@
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime
+from datetime import datetime, date
 import time
+import pandas as pd
 
-DEBUG_MODE = True
-
-def parse_portal_antara(keyword, start_date, end_date):
-    hasil = []
+# Parser final untuk Antara News Lampung
+def parse_portal_antara(keyword=None, start_date=None, end_date=None, max_pages=10):
     headers = {"User-Agent": "Mozilla/5.0"}
+    results = []
 
-    # STEP 1: Ambil semua link artikel dari halaman pencarian atau terkini
-    def get_links(keyword, max_pages=15):
+    def get_links():
+        base_url = f"https://lampung.antaranews.com/search?q={keyword}&page=" if keyword else "https://lampung.antaranews.com/terkini?page="
         links = []
-
-        if keyword:
-            base_url = f"https://lampung.antaranews.com/search?q={keyword}&page="
-            use_terkini = False
-        else:
-            base_url = f"https://lampung.antaranews.com/terkini?page="
-            use_terkini = True
 
         for page in range(1, max_pages + 1):
             url = base_url + str(page)
+            print(f"🔎 Mengambil halaman: {url}")
+
             try:
                 res = requests.get(url, headers=headers, timeout=10)
                 soup = BeautifulSoup(res.content, 'html.parser')
 
-                if use_terkini:
-                    items = soup.select("div.post-content a[href^='/berita/']")
-                else:
-                    items = soup.find_all('h3', limit=10)
-
-                for tag in items:
-                    a = tag if use_terkini else tag.find('a', href=True)
+                h3_tags = soup.find_all('h3')
+                for h3 in h3_tags:
+                    a = h3.find('a', href=True)
                     if a and 'berita' in a['href']:
-                        href = a['href']
-                        if not href.startswith("http"):
-                            href = "https://lampung.antaranews.com" + href
-                        links.append(href)
+                        link = a['href']
+                        if not link.startswith("http"):
+                            link = "https://lampung.antaranews.com" + link
+                        links.append(link)
 
             except Exception as e:
-                print(f"[ERROR] Gagal ambil halaman {url}: {e}")
-                break
+                print(f"[ERROR] Gagal ambil halaman: {e}")
+                continue
 
+        print(f"✅ Total link ditemukan: {len(links)}")
         return links
 
-    # STEP 2: Kelas parser isi artikel
-    class AntaraScraper:
-        def get_tanggal(self, soup):
-            try:
-                raw = soup.find('meta', {'itemprop': 'datePublished'})['content']
-                return datetime.strptime(raw, '%a, %d %b %Y %H:%M:%S %z').date()
-            except:
-                return None
-
-        def get_content(self, soup):
-            try:
-                isi = soup.find('div', itemprop="articleBody").get_text(" ", strip=True)
-                return isi.split("Baca juga:")[0]
-            except:
-                return ""
-
-    links = get_links(keyword)
-    scraper = AntaraScraper()
-
-    for link in links:
+    def get_tanggal(soup):
         try:
-            res = requests.get(link, headers=headers, timeout=10)
-            soup = BeautifulSoup(res.content, 'html.parser')
-            tanggal = scraper.get_tanggal(soup)
-            if not tanggal:
-                continue
-            if not (start_date <= tanggal <= end_date):
-                continue
+            raw = soup.find('meta', {'itemprop': 'datePublished'})['content']
+            return datetime.strptime(raw, '%a, %d %b %Y %H:%M:%S %z').date()
+        except:
+            return None
 
-            teks = scraper.get_content(soup)
-            hasil.append({
+    def get_teks(soup):
+        try:
+            konten = soup.find('div', itemprop="articleBody")
+            return konten.get_text(" ", strip=True).split("Baca juga:")[0]
+        except:
+            return ""
+
+    links = get_links()
+
+    for i, link in enumerate(links):
+        try:
+            r = requests.get(link, headers=headers, timeout=10)
+            soup = BeautifulSoup(r.content, 'html.parser')
+
+            tanggal = get_tanggal(soup)
+            teks = get_teks(soup)
+
+            print(f"\n🔗 [{i+1}] {link}")
+            print(f"📅 Tanggal: {tanggal}")
+            print(f"📝 Teks (potong): {teks[:100]}...")
+
+            if start_date and end_date:
+                if tanggal is None or not (start_date <= tanggal <= end_date):
+                    print("⏭️ Lewat: Di luar rentang tanggal")
+                    continue
+
+            results.append({
                 "link": link,
                 "tanggal": tanggal,
                 "teks": teks
             })
 
-            if DEBUG_MODE:
-                print(f"[{len(hasil)}] {tanggal} - {link}")
-                print(f"[DEBUG] Contoh isi: {teks[:80]}")
-
             time.sleep(1)
+
         except Exception as e:
-            print(f"[ERROR] Gagal scrape {link}: {e}")
+            print(f"[ERROR] Gagal scraping artikel: {e}")
             continue
 
-    return hasil
+    return results
