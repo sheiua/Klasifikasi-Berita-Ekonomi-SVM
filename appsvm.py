@@ -21,7 +21,7 @@ st.title("📡 Scraper & Klasifikasi Berita Ekonomi Lampung")
 # ✅ Pilih portal
 portal = st.selectbox(
     "📰 Pilih Portal Berita:",
-    ["Antara News Lampung", "LampungPro"]
+    ["Antara News Lampung", "Lampungpro"]  # Sesuaikan dengan key di parser_map
 )
 
 # ✅ Keyword opsional
@@ -36,20 +36,24 @@ with col2:
 
 # ✅ Tombol proses
 if st.button("🚀 Mulai Scraping & Klasifikasi"):
-    st.info(f"🔄 Scraping berita dari {portal}...")
+    st.info(f"🔄 Scraping berita dari {portal}... Mohon tunggu sebentar ⏳")
 
-    # Mapping parser
+    # Mapping nama portal ke fungsi parser
     parser_map = {
         "Antara News Lampung": parse_portal_antara,
         "Lampungpro": parse_portal_lampungpro
     }
 
     parse_function = parser_map.get(portal)
+    if not parse_function:
+        st.error("❌ Parser untuk portal tidak ditemukan.")
+        st.stop()
+
     hasil = parse_function(
         keyword if keyword.strip() else None,
         start_date,
         end_date,
-        max_pages=15  # atur jumlah halaman pencarian
+        max_pages=15  # Kamu bisa ubah jumlah halaman jika ingin lebih banyak
     )
 
     if not hasil:
@@ -61,12 +65,12 @@ if st.button("🚀 Mulai Scraping & Klasifikasi"):
     st.write(f"Jumlah artikel ditemukan: {len(df)}")
     st.dataframe(df[['tanggal', 'link']].head())
 
-    # Cek teks
+    # ✅ Cek kolom teks
     if "teks" not in df.columns or df["teks"].isnull().all() or df["teks"].str.strip().eq("").all():
         st.error("❌ Tidak ada isi artikel yang valid untuk diklasifikasi.")
         st.stop()
 
-    # ✅ Prediksi label ekonomi
+    # ✅ Klasifikasi ekonomi
     df['label'] = model.predict(df['teks'])
     df_ekonomi = df[df['label'] == 1]
 
