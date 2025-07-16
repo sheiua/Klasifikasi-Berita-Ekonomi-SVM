@@ -3,7 +3,10 @@ import pandas as pd
 import joblib
 from datetime import datetime
 from text_preprocessor import TextPreprocessor
-from parsers import parse_portal_antara
+from parsers import (
+    parse_portal_antara,
+    parse_portal_viva  # ← Tambah parser viva
+)
 
 # ✅ Load model klasifikasi
 @st.cache_resource
@@ -13,12 +16,12 @@ def load_model():
 model = load_model()
 
 # ✅ Judul aplikasi
-st.title("📡 Scraper & Klasifikasi Berita Ekonomi - Antara News Lampung")
+st.title("📡 Scraper & Klasifikasi Berita Ekonomi Lampung")
 
-# ✅ Pilih portal (sementara 1 dulu)
+# ✅ Pilih portal
 portal = st.selectbox(
     "📰 Pilih Portal Berita:",
-    ["Antara News Lampung"]
+    ["Antara News Lampung", "Viva Lampung"]
 )
 
 # ✅ Keyword opsional
@@ -33,17 +36,24 @@ with col2:
 
 # ✅ Tombol proses
 if st.button("🚀 Mulai Scraping & Klasifikasi"):
-    st.info("🔄 Mengambil dan memproses berita... Mohon tunggu beberapa saat ⏳")
+    st.info(f"🔄 Scraping berita dari {portal}...")
 
-    hasil = parse_portal_antara(
+    # Mapping parser
+    parser_map = {
+        "Antara News Lampung": parse_portal_antara,
+        "Viva Lampung": parse_portal_viva
+    }
+
+    parse_function = parser_map.get(portal)
+    hasil = parse_function(
         keyword if keyword.strip() else None,
         start_date,
         end_date,
-        max_pages=15  # Bisa kamu ubah sesuai kebutuhan
+        max_pages=15  # atur jumlah halaman pencarian
     )
 
     if not hasil:
-        st.warning("⚠️ Tidak ada artikel ditemukan dalam rentang waktu tersebut. Coba gunakan keyword atau perpanjang rentang tanggal.")
+        st.warning("⚠️ Tidak ada artikel ditemukan dalam rentang waktu tersebut.")
         st.stop()
 
     df = pd.DataFrame(hasil)
@@ -51,12 +61,12 @@ if st.button("🚀 Mulai Scraping & Klasifikasi"):
     st.write(f"Jumlah artikel ditemukan: {len(df)}")
     st.dataframe(df[['tanggal', 'link']].head())
 
-    # Cek isi teks
+    # Cek teks
     if "teks" not in df.columns or df["teks"].isnull().all() or df["teks"].str.strip().eq("").all():
         st.error("❌ Tidak ada isi artikel yang valid untuk diklasifikasi.")
         st.stop()
 
-    # ✅ Prediksi ekonomi (label 1)
+    # ✅ Prediksi label ekonomi
     df['label'] = model.predict(df['teks'])
     df_ekonomi = df[df['label'] == 1]
 
