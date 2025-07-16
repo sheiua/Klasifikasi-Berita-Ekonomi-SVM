@@ -4,15 +4,9 @@ from datetime import datetime, date
 import time
 import pandas as pd
 
-# Parser final untuk Antara News Lampung dengan debug dan headers lengkap
-def parse_portal_antara(keyword=None, start_date=None, end_date=None, max_pages=10):
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
-        "Accept-Language": "id-ID,id;q=0.9,en;q=0.8",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9",
-        "Referer": "https://google.com",
-        "Connection": "keep-alive"
-    }
+# Fungsi debug scraping Antara News Lampung
+def debug_scrape_antara(keyword=None, start_date=None, end_date=None, max_pages=3):
+    headers = {"User-Agent": "Mozilla/5.0"}
     results = []
 
     def get_links():
@@ -25,13 +19,7 @@ def parse_portal_antara(keyword=None, start_date=None, end_date=None, max_pages=
 
             try:
                 res = requests.get(url, headers=headers, timeout=10)
-                if res.status_code != 200:
-                    print(f"[ERROR] Status code: {res.status_code}")
-                    print("[DEBUG] Respon (potong):", res.text[:300])
-                    continue
-
                 soup = BeautifulSoup(res.content, 'html.parser')
-                print("[DEBUG] Judul halaman:", soup.title.string if soup.title else "(tidak ada title)")
 
                 h3_tags = soup.find_all('h3')
                 for h3 in h3_tags:
@@ -68,10 +56,6 @@ def parse_portal_antara(keyword=None, start_date=None, end_date=None, max_pages=
     for i, link in enumerate(links):
         try:
             r = requests.get(link, headers=headers, timeout=10)
-            if r.status_code != 200:
-                print(f"[ERROR] Artikel gagal dibuka: {link} - status {r.status_code}")
-                continue
-
             soup = BeautifulSoup(r.content, 'html.parser')
 
             tanggal = get_tanggal(soup)
@@ -98,4 +82,4 @@ def parse_portal_antara(keyword=None, start_date=None, end_date=None, max_pages=
             print(f"[ERROR] Gagal scraping artikel: {e}")
             continue
 
-    return results
+    return pd.DataFrame(results)
