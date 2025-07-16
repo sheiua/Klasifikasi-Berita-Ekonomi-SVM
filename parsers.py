@@ -1,12 +1,12 @@
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime, date
+from datetime import datetime
 import time
-import pandas as pd
 
-# Fungsi debug scraping Antara News Lampung
-def debug_scrape_antara(keyword=None, start_date=None, end_date=None, max_pages=3):
-    headers = {"User-Agent": "Mozilla/5.0"}
+def parse_portal_antara(keyword=None, start_date=None, end_date=None, max_pages=10):
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
+    }
     results = []
 
     def get_links():
@@ -16,7 +16,6 @@ def debug_scrape_antara(keyword=None, start_date=None, end_date=None, max_pages=
         for page in range(1, max_pages + 1):
             url = base_url + str(page)
             print(f"🔎 Mengambil halaman: {url}")
-
             try:
                 res = requests.get(url, headers=headers, timeout=10)
                 soup = BeautifulSoup(res.content, 'html.parser')
@@ -29,12 +28,10 @@ def debug_scrape_antara(keyword=None, start_date=None, end_date=None, max_pages=
                         if not link.startswith("http"):
                             link = "https://lampung.antaranews.com" + link
                         links.append(link)
-
             except Exception as e:
                 print(f"[ERROR] Gagal ambil halaman: {e}")
                 continue
 
-        print(f"✅ Total link ditemukan: {len(links)}")
         return links
 
     def get_tanggal(soup):
@@ -61,13 +58,8 @@ def debug_scrape_antara(keyword=None, start_date=None, end_date=None, max_pages=
             tanggal = get_tanggal(soup)
             teks = get_teks(soup)
 
-            print(f"\n🔗 [{i+1}] {link}")
-            print(f"📅 Tanggal: {tanggal}")
-            print(f"📝 Teks (potong): {teks[:100]}...")
-
             if start_date and end_date:
                 if tanggal is None or not (start_date <= tanggal <= end_date):
-                    print("⏭️ Lewat: Di luar rentang tanggal")
                     continue
 
             results.append({
@@ -77,9 +69,8 @@ def debug_scrape_antara(keyword=None, start_date=None, end_date=None, max_pages=
             })
 
             time.sleep(1)
-
         except Exception as e:
             print(f"[ERROR] Gagal scraping artikel: {e}")
             continue
 
-    return pd.DataFrame(results)
+    return results
