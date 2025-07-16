@@ -77,41 +77,48 @@ def parse_portal_antara(keyword=None, start_date=None, end_date=None, max_pages=
     return results
 
 #Viva Lampung
-def parse_portal_viva(keyword=None, start_date=None, end_date=None, max_pages=10):
-    headers = {"User-Agent": "Mozilla/5.0"}
+def parse_portal_viva(keyword=None, start_date=None, end_date=None, max_pages=15):
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
+        "Accept-Language": "id-ID,id;q=0.9,en;q=0.8",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9",
+        "Referer": "https://google.com",
+        "Connection": "keep-alive"
+    }
     results = []
 
     def get_links():
-        base_url = f"https://lampung.viva.co.id/search?q={keyword}&page=" if keyword else "https://lampung.viva.co.id/berita?page="
         links = []
+        base_url = f"https://lampung.viva.co.id/search?q={keyword}&page=" if keyword else "https://lampung.viva.co.id/search?q=berita&page="
 
         for page in range(1, max_pages + 1):
             url = base_url + str(page)
-            print(f"🔎 Mengambil halaman: {url}")
+            print(f"🔎 Viva - Mengambil halaman: {url}")
 
             try:
                 res = requests.get(url, headers=headers, timeout=10)
-                soup = BeautifulSoup(res.text, 'html.parser')
+                if res.status_code != 200:
+                    print(f"[ERROR] Status code: {res.status_code}")
+                    continue
 
-                new_links = [a_tag['href'] for a_tag in soup.find_all('a', class_='article-list-title')
-                             if a_tag['href'].startswith('https://lampung.viva.co.id/')]
-                links.extend(new_links)
+                soup = BeautifulSoup(res.content, 'html.parser')
 
-                if not new_links:
-                    break
+                for a_tag in soup.find_all('a', class_='article-list-title'):
+                    href = a_tag.get('href')
+                    if href and href.startswith('https://lampung.viva.co.id'):
+                        links.append(href)
 
             except Exception as e:
-                print(f"[ERROR] Gagal ambil halaman {url}: {e}")
-                break
+                print(f"[ERROR] Gagal ambil halaman: {e}")
+                continue
 
         print(f"✅ Total link ditemukan: {len(links)}")
-        return list(set(links))  # hapus duplikat
+        return links
 
     def get_tanggal(soup):
         try:
-            meta_tag = soup.find('meta', {'property': 'article:published_time'})
-            date_content = meta_tag['content'].split(' ')[0]
-            return datetime.strptime(date_content, '%Y-%m-%d').date()
+            meta = soup.find('meta', {'property': 'article:published_time'})
+            return datetime.strptime(meta['content'].split('T')[0], '%Y-%m-%d').date()
         except:
             return None
 
@@ -127,19 +134,23 @@ def parse_portal_viva(keyword=None, start_date=None, end_date=None, max_pages=10
     for i, link in enumerate(links):
         try:
             r = requests.get(link, headers=headers, timeout=10)
+            if r.status_code != 200:
+                print(f"[ERROR] Artikel gagal dibuka: {link} - status {r.status_code}")
+                continue
+
             soup = BeautifulSoup(r.content, 'html.parser')
 
             tanggal = get_tanggal(soup)
-            if not tanggal:
-                continue
-            if start_date and end_date and not (start_date <= tanggal <= end_date):
-                continue
-
             teks = get_teks(soup)
 
             print(f"\n🔗 [{i+1}] {link}")
             print(f"📅 Tanggal: {tanggal}")
             print(f"📝 Teks (potong): {teks[:100]}...")
+
+            if start_date and end_date:
+                if tanggal is None or not (start_date <= tanggal <= end_date):
+                    print("⏭️ Lewat: Di luar rentang tanggal")
+                    continue
 
             results.append({
                 "link": link,
@@ -154,4 +165,3 @@ def parse_portal_viva(keyword=None, start_date=None, end_date=None, max_pages=10
             continue
 
     return results
-
