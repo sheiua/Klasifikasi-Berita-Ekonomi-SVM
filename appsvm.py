@@ -40,16 +40,21 @@ if st.button("🚀 Mulai Scraping & Klasifikasi"):
     # Mapping portal ke fungsi parser
     parser_map = {
         "Antara News Lampung": parse_portal_antara
+        # Portal lainnya tinggal kamu tambahkan di sini nanti
     }
 
     parse_function = parser_map.get(portal)
-    hasil = parse_portal_antara(
-    keyword if keyword.strip() else None,
-    start_date,
-    end_date,
-    max_pages=15
-)
 
+    if parse_function is None:
+        st.error("Parser belum tersedia untuk portal ini.")
+        st.stop()
+
+    hasil = parse_function(
+        keyword if keyword.strip() else None,
+        start_date,
+        end_date,
+        max_pages=15
+    )
 
     # ✅ Cek hasil scraping
     if not hasil:
