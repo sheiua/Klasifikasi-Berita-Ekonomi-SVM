@@ -59,8 +59,12 @@ def parse_portal_antara(keyword=None, start_date=None, end_date=None, max_pages=
             tanggal = get_tanggal(soup)
             teks = get_teks(soup)
 
+            if tanggal is None:
+                print("⚠️ Tanggal tidak ditemukan, gunakan fallback hari ini.")
+                tanggal = datetime.today().date()
+
             if start_date and end_date and not (start_date <= tanggal <= end_date):
-                print("⏭️ Lewat: Di luar rentang tanggal")
+                print("⏭️ Lewat: Tidak valid atau di luar rentang tanggal")
                 continue
 
             results.append({
