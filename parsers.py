@@ -9,33 +9,43 @@ def parse_portal_antara(keyword, start_date, end_date):
     hasil = []
     headers = {"User-Agent": "Mozilla/5.0"}
 
-    # STEP 1: Ambil semua link artikel
+    # STEP 1: Ambil semua link artikel dari halaman pencarian atau terkini
     def get_links(keyword, max_pages=15):
+        links = []
+
         if keyword:
             base_url = f"https://lampung.antaranews.com/search?q={keyword}&page="
+            use_terkini = False
         else:
             base_url = f"https://lampung.antaranews.com/terkini?page="
+            use_terkini = True
 
-        links = []
         for page in range(1, max_pages + 1):
             url = base_url + str(page)
             try:
                 res = requests.get(url, headers=headers, timeout=10)
                 soup = BeautifulSoup(res.content, 'html.parser')
-                h3_tags = soup.find_all('h3', limit=10)
-                for h3 in h3_tags:
-                    a = h3.find('a', href=True)
+
+                if use_terkini:
+                    items = soup.select("div.post-content a[href^='/berita/']")
+                else:
+                    items = soup.find_all('h3', limit=10)
+
+                for tag in items:
+                    a = tag if use_terkini else tag.find('a', href=True)
                     if a and 'berita' in a['href']:
                         href = a['href']
                         if not href.startswith("http"):
                             href = "https://lampung.antaranews.com" + href
                         links.append(href)
+
             except Exception as e:
                 print(f"[ERROR] Gagal ambil halaman {url}: {e}")
                 break
+
         return links
 
-    # STEP 2: Kelas parser artikel
+    # STEP 2: Kelas parser isi artikel
     class AntaraScraper:
         def get_tanggal(self, soup):
             try:
