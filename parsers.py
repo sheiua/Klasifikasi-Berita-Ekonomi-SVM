@@ -78,50 +78,53 @@ def parse_portal_antara(keyword=None, start_date=None, end_date=None, max_pages=
 
     return results
 
-def parse_portal_viva(keyword=None, start_date=None, end_date=None, max_page=5):
-    base_url = "https://lampung.viva.co.id/berita"
+def parse_portal_viva(max_pages=5):
+    base_url = "https://lampung.viva.co.id/berita?page="
     results = []
 
-    for page in range(1, max_page + 1):
-        url = f"{base_url}/page/{page}"
-        resp = requests.get(url)
-        soup = BeautifulSoup(resp.text, "html.parser")
-
-        articles = soup.select("div.article-list-thumb")
-
-        for article in articles:
-            try:
-                a_tag = article.select_one("a.article-list-thumb-link")
-                if not a_tag:
-                    continue
-
-                link = a_tag["href"]
-                title_img = a_tag.select_one("img")
-                judul = title_img["alt"].strip() if title_img else "Tidak ada judul"
-
-                # Ambil tanggal dari URL gambar jika ada
-                img_url = title_img.get("src", "")
-                tanggal = None
-                try:
-                    # Contoh: /2025/07/17/ di URL gambar
-                    parts = img_url.split("/")
-                    tanggal = datetime.strptime(f"{parts[-3]}-{parts[-2]}-{parts[-1][:2]}", "%Y-%m-%d")
-                except:
-                    tanggal = datetime.now()
-
-                # Filter by date
-                if start_date and tanggal < start_date:
-                    continue
-                if end_date and tanggal > end_date:
-                    continue
-
-                results.append({
-                    "judul": judul,
-                    "link": link,
-                    "tanggal": tanggal.strftime("%Y-%m-%d")
-                })
-
-            except Exception as e:
+    for page in range(1, max_pages + 1):
+        url = base_url + str(page)
+        try:
+            response = requests.get(url, timeout=10)
+            if response.status_code != 200:
+                print(f"Gagal mengakses halaman: {url}")
                 continue
+
+            soup = BeautifulSoup(response.text, "html.parser")
+            article_links = soup.find_all("a", class_="article-list-thumb-link")
+
+            for link_tag in article_links:
+                link = link_tag.get("href")
+                if not link.startswith("http"):
+                    link = "https://lampung.viva.co.id" + link
+
+                try:
+                    res = requests.get(link, timeout=10)
+                    if res.status_code != 200:
+                        continue
+
+                    detail_soup = BeautifulSoup(res.text, "html.parser")
+
+                    # Judul
+                    title_tag = detail_soup.find("h1")
+                    title = title_tag.get_text(strip=True) if title_tag else "Tidak ada judul"
+
+                    # Isi konten
+                    paragraphs = detail_soup.find_all("p")
+                    isi = "\n".join([p.get_text(strip=True) for p in paragraphs if p.get_text(strip=True)])
+
+                    results.append({
+                        "judul": title,
+                        "link": link,
+                        "isi": isi
+                    })
+
+                    time.sleep(1)  # agar tidak diblok
+
+                except Exception as e:
+                    print("Gagal mengambil detail artikel:", e)
+
+        except Exception as e:
+            print("Gagal membuka halaman utama:", e)
 
     return results
