@@ -48,7 +48,6 @@ if st.button("🚀 Mulai Scraping & Klasifikasi"):
 
     # 🔄 Panggil parser tanpa keyword
     hasil = parse_function(
-        keyword=None,
         start_date=start_date,
         end_date=end_date,
         max_pages=15
