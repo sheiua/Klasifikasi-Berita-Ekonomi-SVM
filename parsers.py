@@ -105,10 +105,17 @@ def parse_portal_lampungpro(keyword=None, start_date=None, end_date=None, max_pa
             tag = soup.select_one("span.text-muted")
             if tag:
                 raw = tag.get_text(strip=True)
-                return datetime.strptime(raw, "%d-%m-%Y").date()
-        except:
-            pass
+                print("📅 RAW tanggal ditemukan:", raw)
+                # Coba parsing dengan beberapa format
+                for fmt in ("%d-%m-%Y", "%d/%m/%Y", "%d %B %Y"):
+                    try:
+                        return datetime.strptime(raw, fmt).date()
+                    except:
+                        continue
+        except Exception as e:
+            print("[ERROR get_tanggal]:", e)
         return None
+    
 
     def get_teks(soup):
         try:
