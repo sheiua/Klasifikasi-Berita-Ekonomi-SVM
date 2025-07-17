@@ -24,7 +24,7 @@ portal = st.selectbox(
     ["Antara News Lampung", "Viva Lampung"]
 )
 
-# ✅ Rentang tanggal
+# ✅ Rentang tanggal (tidak digunakan saat ini, bisa diaktifkan kembali nanti)
 col1, col2 = st.columns(2)
 with col1:
     start_date = st.date_input("📅 Tanggal mulai", value=datetime(2024, 1, 1))
@@ -46,34 +46,37 @@ if st.button("🚀 Mulai Scraping & Klasifikasi"):
         st.error("❌ Parser untuk portal tidak ditemukan.")
         st.stop()
 
-    # 🔄 Panggil parser tanpa keyword
+    # 🔄 Panggil parser tanpa keyword dan tanpa filter tanggal
     hasil = parse_function(
-        max_page=15
+        max_pages=15
     )
 
     if not hasil:
-        st.warning("⚠️ Tidak ada artikel ditemukan dalam rentang waktu tersebut.")
+        st.warning("⚠️ Tidak ada artikel ditemukan.")
         st.stop()
 
     df = pd.DataFrame(hasil)
     st.subheader("📋 Hasil Scraping")
     st.write(f"Jumlah artikel ditemukan: {len(df)}")
-    st.dataframe(df[['tanggal', 'link']].head())
+    if 'tanggal' in df.columns:
+        st.dataframe(df[['tanggal', 'link']].head())
+    else:
+        st.dataframe(df[['link']].head())
 
     # ✅ Validasi isi teks artikel
-    if "teks" not in df.columns or df["teks"].isnull().all() or df["teks"].str.strip().eq("").all():
+    if "isi" not in df.columns or df["isi"].isnull().all() or df["isi"].str.strip().eq("").all():
         st.error("❌ Tidak ada isi artikel yang valid untuk diklasifikasi.")
         st.stop()
 
     # ✅ Klasifikasi
-    df['label'] = model.predict(df['teks'])
+    df['label'] = model.predict(df['isi'])
     df_ekonomi = df[df['label'] == 1]
 
     st.success(f"✅ Jumlah berita bertopik ekonomi: {len(df_ekonomi)}")
 
     if not df_ekonomi.empty:
         st.subheader("📄 Daftar Berita Ekonomi")
-        st.dataframe(df_ekonomi[['tanggal', 'link', 'teks']])
+        st.dataframe(df_ekonomi[['link', 'isi']])
 
         # ✅ Download Excel
         output_file = "Berita_Ekonomi.xlsx"
