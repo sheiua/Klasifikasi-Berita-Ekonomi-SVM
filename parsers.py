@@ -79,79 +79,49 @@ def parse_portal_antara(keyword=None, start_date=None, end_date=None, max_pages=
     return results
 
 def parse_portal_viva(keyword=None, start_date=None, end_date=None, max_pages=10):
-    import requests
-    from bs4 import BeautifulSoup
-    from datetime import datetime
-    import time
-
-    headers = {
-        "User-Agent": "Mozilla/5.0"
-    }
+    base_url = "https://lampung.viva.co.id/berita"
     results = []
 
-    def get_links():
-        base_url = f"https://lampung.viva.co.id/search?q={keyword}&page=" if keyword else "https://lampung.viva.co.id/news?page="
-        links = []
+    for page in range(1, max_pages + 1):
+        url = f"{base_url}?page={page}" if page > 1 else base_url
+        response = requests.get(url, timeout=10)
+        if response.status_code != 200:
+            break
 
-        for page in range(1, max_pages + 1):
-            url = base_url + str(page)
-            print(f"🔎 Mengambil halaman: {url}")
+        soup = BeautifulSoup(response.text, "html.parser")
+        articles = soup.select("div.col-md-8 div.card")
+
+        if not articles:
+            break
+
+        for article in articles:
             try:
-                res = requests.get(url, headers=headers, timeout=10)
-                soup = BeautifulSoup(res.content, 'html.parser')
+                link_tag = article.find("a", href=True)
+                link = "https://lampung.viva.co.id" + link_tag["href"]
+                tanggal_tag = article.select_one("div.card-body small.text-muted")
+                tanggal_str = tanggal_tag.get_text(strip=True)
+                # Contoh format tanggal: "Senin, 15 Juli 2024 | 10:00 WIB"
+                tanggal = datetime.strptime(tanggal_str.split("|")[0].strip(), "%A, %d %B %Y")
 
-                a_tags = soup.find_all("a", class_="article-list-title")
-                for a in a_tags:
-                    href = a.get("href")
-                    if href and href.startswith("https://lampung.viva.co.id/"):
-                        links.append(href)
-            except Exception as e:
-                print(f"[ERROR] Gagal ambil halaman: {e}")
-                continue
-
-        return list(set(links))  # hapus duplikat
-
-    def get_tanggal(soup):
-        try:
-            tag = soup.find("meta", {"property": "article:published_time"})
-            if tag:
-                raw = tag["content"].split("T")[0]
-                return datetime.strptime(raw, "%Y-%m-%d").date()
-        except:
-            pass
-        return None
-
-    def get_teks(soup):
-        try:
-            konten = soup.find("div", class_="main-content-body")
-            return konten.get_text(" ", strip=True)
-        except:
-            return ""
-
-    links = get_links()
-
-    for i, link in enumerate(links):
-        try:
-            r = requests.get(link, headers=headers, timeout=10)
-            soup = BeautifulSoup(r.content, 'html.parser')
-
-            tanggal = get_tanggal(soup)
-            teks = get_teks(soup)
-
-            if start_date and end_date:
-                if tanggal is None or not (start_date <= tanggal <= end_date):
+                if start_date and tanggal.date() < start_date:
+                    continue
+                if end_date and tanggal.date() > end_date:
                     continue
 
-            results.append({
-                "link": link,
-                "tanggal": tanggal,
-                "teks": teks
-            })
+                # Ambil isi artikel
+                artikel_resp = requests.get(link, timeout=10)
+                artikel_soup = BeautifulSoup(artikel_resp.text, "html.parser")
+                isi_tag = artikel_soup.select_one("div.entry-content")
+                isi = isi_tag.get_text(separator=" ", strip=True) if isi_tag else ""
 
-            time.sleep(1)
-        except Exception as e:
-            print(f"[ERROR] Gagal scraping artikel: {e}")
-            continue
+                results.append({
+                    "tanggal": tanggal.date().isoformat(),
+                    "link": link,
+                    "teks": isi
+                })
+            except Exception as e:
+                continue  # Lewati error per artikel
+
+        time.sleep(1)  # Hindari overloading server
 
     return results
-
