@@ -78,62 +78,49 @@ def parse_portal_antara(keyword=None, start_date=None, end_date=None, max_pages=
 
     return results
 
-def parse_portal_viva(keyword=None, start_date=None, end_date=None, max_pages=5):
+def parse_portal_viva(keyword=None, start_date=None, end_date=None, max_page=5):
     base_url = "https://lampung.viva.co.id/berita"
     results = []
 
-    for page in range(1, max_pages + 1):
-        url = f"{base_url}?page={page}"
+    for page in range(1, max_page + 1):
+        url = f"{base_url}/page/{page}"
         resp = requests.get(url)
-        if resp.status_code != 200:
-            break
-
         soup = BeautifulSoup(resp.text, "html.parser")
-        articles = soup.select(".latest-list .item-content")
 
-        if not articles:
-            break
+        articles = soup.select("div.article-list-thumb")
 
         for article in articles:
             try:
-                a_tag = article.find("a")
-                link = a_tag["href"]
-                full_link = "https://lampung.viva.co.id" + link
-
-                title = a_tag.get_text(strip=True)
-
-                # Ambil isi artikel
-                article_resp = requests.get(full_link)
-                article_soup = BeautifulSoup(article_resp.text, "html.parser")
-                content = article_soup.select_one("div.content-detail")
-                if not content:
+                a_tag = article.select_one("a.article-list-thumb-link")
+                if not a_tag:
                     continue
-                text = content.get_text(separator=" ", strip=True)
 
-                # Tanggal artikel
-                time_tag = article_soup.select_one("div.date")
-                if time_tag:
-                    try:
-                        tanggal = datetime.strptime(time_tag.text.strip(), "%A, %d %B %Y %H:%M WIB")
-                    except:
-                        tanggal = datetime.now()
-                else:
+                link = a_tag["href"]
+                title_img = a_tag.select_one("img")
+                judul = title_img["alt"].strip() if title_img else "Tidak ada judul"
+
+                # Ambil tanggal dari URL gambar jika ada
+                img_url = title_img.get("src", "")
+                tanggal = None
+                try:
+                    # Contoh: /2025/07/17/ di URL gambar
+                    parts = img_url.split("/")
+                    tanggal = datetime.strptime(f"{parts[-3]}-{parts[-2]}-{parts[-1][:2]}", "%Y-%m-%d")
+                except:
                     tanggal = datetime.now()
 
-                # Filter berdasarkan rentang tanggal
-                if start_date and tanggal.date() < start_date:
+                # Filter by date
+                if start_date and tanggal < start_date:
                     continue
-                if end_date and tanggal.date() > end_date:
+                if end_date and tanggal > end_date:
                     continue
 
                 results.append({
-                    "judul": title,
-                    "link": full_link,
-                    "tanggal": tanggal.date(),
-                    "teks": text
+                    "judul": judul,
+                    "link": link,
+                    "tanggal": tanggal.strftime("%Y-%m-%d")
                 })
 
-                time.sleep(0.5)  # agar tidak terlalu cepat
             except Exception as e:
                 continue
 
