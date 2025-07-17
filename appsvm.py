@@ -50,7 +50,7 @@ if st.button("🚀 Mulai Scraping & Klasifikasi"):
     hasil = parse_function(
         start_date=start_date,
         end_date=end_date,
-        max_pages=15
+        max_page=15
     )
 
     if not hasil:
