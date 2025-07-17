@@ -78,47 +78,48 @@ def parse_portal_antara(keyword=None, start_date=None, end_date=None, max_pages=
 
     return results
 
-def parse_portal_tribun(keyword=None, start_date=None, end_date=None, max_pages=10):
+def parse_portal_viva(keyword=None, start_date=None, end_date=None, max_pages=10):
     headers = {
         "User-Agent": "Mozilla/5.0"
     }
-    base_url = f"https://lampung.tribunnews.com/search?q={keyword}&page=" if keyword else "https://lampung.tribunnews.com/index-news.html?page="
-    hasil = []
+    results = []
 
     def get_links():
+        base_url = f"https://lampung.viva.co.id/search?q={keyword}&page=" if keyword else "https://lampung.viva.co.id/news?page="
         links = []
+
         for page in range(1, max_pages + 1):
             url = base_url + str(page)
-            print(f"[TRIBUN] Mengambil halaman: {url}")
+            print(f"🔎 Mengambil halaman: {url}")
             try:
-                r = requests.get(url, headers=headers, timeout=10)
-                soup = BeautifulSoup(r.content, 'html.parser')
-                articles = soup.select("div.gsc-thumbnail-inside a.gs-title")
-                for a in articles:
+                res = requests.get(url, headers=headers, timeout=10)
+                soup = BeautifulSoup(res.content, 'html.parser')
+
+                a_tags = soup.find_all("a", class_="article-list-title")
+                for a in a_tags:
                     href = a.get("href")
-                    if href and href.startswith("https://lampung.tribunnews.com"):
+                    if href and href.startswith("https://lampung.viva.co.id/"):
                         links.append(href)
             except Exception as e:
                 print(f"[ERROR] Gagal ambil halaman: {e}")
                 continue
-        return links
 
-    def get_tanggal_from_url(url):
+        return list(set(links))  # hapus duplikat
+
+    def get_tanggal(soup):
         try:
-            match = re.search(r'/(\d{4})/(\d{2})/(\d{2})/', url)
-            if match:
-                year, month, day = match.groups()
-                return datetime(int(year), int(month), int(day)).date()
+            tag = soup.find("meta", {"property": "article:published_time"})
+            if tag:
+                raw = tag["content"].split("T")[0]
+                return datetime.strptime(raw, "%Y-%m-%d").date()
         except:
             pass
         return None
 
     def get_teks(soup):
         try:
-            konten = soup.find("div", itemprop="articleBody")
-            if not konten:
-                konten = soup.find("div", class_="side-article txt-article multi-fontsize")
-            return konten.get_text(" ", strip=True) if konten else ""
+            konten = soup.find("div", class_="main-content-body")
+            return konten.get_text(" ", strip=True)
         except:
             return ""
 
@@ -128,28 +129,23 @@ def parse_portal_tribun(keyword=None, start_date=None, end_date=None, max_pages=
         try:
             r = requests.get(link, headers=headers, timeout=10)
             soup = BeautifulSoup(r.content, 'html.parser')
-            tanggal = get_tanggal_from_url(link)
-            teks = get_teks(soup)
 
-            print(f"\n🔗 [{i+1}] {link}")
-            print(f"📅 Tanggal: {tanggal}")
-            print(f"📝 Teks (potong): {teks[:100]}...")
+            tanggal = get_tanggal(soup)
+            teks = get_teks(soup)
 
             if start_date and end_date:
                 if tanggal is None or not (start_date <= tanggal <= end_date):
-                    print("⏭️ Lewat: Di luar rentang tanggal")
                     continue
 
-            hasil.append({
+            results.append({
                 "link": link,
                 "tanggal": tanggal,
                 "teks": teks
             })
 
             time.sleep(1)
-
         except Exception as e:
             print(f"[ERROR] Gagal scraping artikel: {e}")
             continue
 
-    return hasil
+    return results
