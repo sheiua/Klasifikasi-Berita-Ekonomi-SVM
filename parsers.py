@@ -36,10 +36,13 @@ def parse_portal_antara(keyword=None, start_date=None, end_date=None, max_pages=
 
     def get_tanggal(soup):
         try:
-            raw = soup.find('meta', {'itemprop': 'datePublished'})['content']
-            return datetime.strptime(raw, '%a, %d %b %Y %H:%M:%S %z').date()
+            tag = soup.find("meta", {"property": "article:published_time"})
+            if tag:
+                raw = tag["content"].split("T")[0]  # Format: '2024-12-27T...'
+                return datetime.strptime(raw, "%Y-%m-%d").date()
         except:
-            return None
+            pass
+        return None
 
     def get_teks(soup):
         try:
