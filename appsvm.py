@@ -5,7 +5,7 @@ from datetime import datetime
 from text_preprocessor import TextPreprocessor
 from parsers import (
     parse_portal_antara,
-    parse_portal_tribun
+    parse_portal_viva
 )
 
 # ✅ Load model klasifikasi
@@ -21,7 +21,7 @@ st.title("📡 Scraper & Klasifikasi Berita Ekonomi Lampung")
 # ✅ Pilih portal
 portal = st.selectbox(
     "📰 Pilih Portal Berita:",
-    ["Antara News Lampung", "Tribun Lampung"]  # Sesuaikan dengan key di parser_map
+    ["Antara News Lampung", "Viva Lampung"]  # Sesuaikan dengan key di parser_map
 )
 
 # ✅ Keyword opsional
@@ -41,7 +41,7 @@ if st.button("🚀 Mulai Scraping & Klasifikasi"):
     # Mapping nama portal ke fungsi parser
     parser_map = {
         "Antara News Lampung": parse_portal_antara,
-        "Tribun Lampung": parse_portal_tribun
+        "Viva Lampung": parse_portal_viva
     }
 
     parse_function = parser_map.get(portal)
