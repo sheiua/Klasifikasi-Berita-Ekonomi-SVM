@@ -78,50 +78,63 @@ def parse_portal_antara(keyword=None, start_date=None, end_date=None, max_pages=
 
     return results
 
-def parse_portal_viva(keyword=None, start_date=None, end_date=None, max_pages=10):
+def parse_portal_viva(keyword=None, start_date=None, end_date=None, max_pages=5):
     base_url = "https://lampung.viva.co.id/berita"
     results = []
 
     for page in range(1, max_pages + 1):
-        url = f"{base_url}?page={page}" if page > 1 else base_url
-        response = requests.get(url, timeout=10)
-        if response.status_code != 200:
+        url = f"{base_url}?page={page}"
+        resp = requests.get(url)
+        if resp.status_code != 200:
             break
 
-        soup = BeautifulSoup(response.text, "html.parser")
-        articles = soup.select("div.col-md-8 div.card")
+        soup = BeautifulSoup(resp.text, "html.parser")
+        articles = soup.select(".latest-list .item-content")
 
         if not articles:
             break
 
         for article in articles:
             try:
-                link_tag = article.find("a", href=True)
-                link = "https://lampung.viva.co.id" + link_tag["href"]
-                tanggal_tag = article.select_one("div.card-body small.text-muted")
-                tanggal_str = tanggal_tag.get_text(strip=True)
-                # Contoh format tanggal: "Senin, 15 Juli 2024 | 10:00 WIB"
-                tanggal = datetime.strptime(tanggal_str.split("|")[0].strip(), "%A, %d %B %Y")
+                a_tag = article.find("a")
+                link = a_tag["href"]
+                full_link = "https://lampung.viva.co.id" + link
 
+                title = a_tag.get_text(strip=True)
+
+                # Ambil isi artikel
+                article_resp = requests.get(full_link)
+                article_soup = BeautifulSoup(article_resp.text, "html.parser")
+                content = article_soup.select_one("div.content-detail")
+                if not content:
+                    continue
+                text = content.get_text(separator=" ", strip=True)
+
+                # Tanggal artikel
+                time_tag = article_soup.select_one("div.date")
+                if time_tag:
+                    try:
+                        tanggal = datetime.strptime(time_tag.text.strip(), "%A, %d %B %Y %H:%M WIB")
+                    except:
+                        tanggal = datetime.now()
+                else:
+                    tanggal = datetime.now()
+
+                # Filter berdasarkan rentang tanggal
                 if start_date and tanggal.date() < start_date:
                     continue
                 if end_date and tanggal.date() > end_date:
                     continue
 
-                # Ambil isi artikel
-                artikel_resp = requests.get(link, timeout=10)
-                artikel_soup = BeautifulSoup(artikel_resp.text, "html.parser")
-                isi_tag = artikel_soup.select_one("div.entry-content")
-                isi = isi_tag.get_text(separator=" ", strip=True) if isi_tag else ""
-
                 results.append({
-                    "tanggal": tanggal.date().isoformat(),
-                    "link": link,
-                    "teks": isi
+                    "judul": title,
+                    "link": full_link,
+                    "tanggal": tanggal.date(),
+                    "teks": text
                 })
-            except Exception as e:
-                continue  # Lewati error per artikel
 
-        time.sleep(1)  # Hindari overloading server
+                time.sleep(0.5)  # agar tidak terlalu cepat
+            except Exception as e:
+                continue
 
     return results
