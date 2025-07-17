@@ -128,3 +128,60 @@ def parse_portal_viva(max_pages=5):
             print("Gagal membuka halaman utama:", e)
 
     return results
+
+def parse_portal_lampost(start_date=None, end_date=None, max_pages=5):
+    results = []
+    abjad = ["a", "e", "i", "o", "u"]
+
+    for huruf in abjad:
+        for page in range(1, max_pages + 1):
+            url = f"https://lampost.co/page/{page}/?s={huruf}"
+            resp = requests.get(url)
+            soup = BeautifulSoup(resp.text, "html.parser")
+            articles = soup.select("div.card-content h2 a")
+
+            if not articles:
+                break
+
+            for a in articles:
+                link = a.get("href")
+                judul = a.text.strip()
+                isi, tanggal = get_isi_lampost(link)
+
+                if not isi or not tanggal:
+                    continue
+
+                if start_date and tanggal < start_date: continue
+                if end_date and tanggal > end_date: continue
+
+                results.append({
+                    "tanggal": tanggal.strftime("%Y-%m-%d"),
+                    "judul": judul,
+                    "link": link,
+                    "isi": isi
+                })
+
+            time.sleep(1)
+    return results
+
+def get_isi_lampost(link):
+    try:
+        resp = requests.get(link)
+        soup = BeautifulSoup(resp.text, "html.parser")
+
+        konten = soup.select_one("div.detail-news-content") or soup.select_one("div.post-content")
+        isi = konten.get_text(separator=" ", strip=True) if konten else ""
+
+        tgl_tag = soup.find("time")
+        if tgl_tag:
+            tgl_str = tgl_tag.text.strip()
+            try:
+                tgl = datetime.strptime(tgl_str, "%A, %d %B %Y")
+            except:
+                tgl = None
+        else:
+            tgl = None
+
+        return isi, tgl
+    except:
+        return "", None
