@@ -75,26 +75,31 @@ def parse_portal_antara(keyword=None, start_date=None, end_date=None, max_pages=
 
     return results
 
-def parse_portal_lampungpro(keyword=None, start_date=None, end_date=None, max_pages=15):
+def parse_portal_tribun(keyword=None, start_date=None, end_date=None, max_pages=10):
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
     }
-    base_url = "https://lampungpro.co/index.php?page=berita&halaman="
-    hasil = []
+
+    results = []
 
     def get_links():
         links = []
         for page in range(1, max_pages + 1):
-            url = base_url + str(page)
-            print(f"[LAMPUNGPRO] Mengambil halaman: {url}")
+            if keyword:
+                url = f"https://lampung.tribunnews.com/search/page/{page}?q={keyword}"
+            else:
+                url = f"https://lampung.tribunnews.com/index-news/{page}"
+
+            print(f"[TRIBUN] Mengambil halaman: {url}")
             try:
                 res = requests.get(url, headers=headers, timeout=10)
                 soup = BeautifulSoup(res.content, 'html.parser')
-                articles = soup.select("div.uk-width-expand a.font-normal")
-                for a in articles:
-                    href = a.get("href")
-                    if href and href.startswith("http"):
-                        links.append(href)
+
+                for a in soup.select("h3.entry-title a[href]"):
+                    link = a['href']
+                    if link.startswith("https://lampung.tribunnews.com/"):
+                        links.append(link)
+
             except Exception as e:
                 print(f"[ERROR] Gagal ambil halaman: {e}")
                 continue
@@ -102,25 +107,18 @@ def parse_portal_lampungpro(keyword=None, start_date=None, end_date=None, max_pa
 
     def get_tanggal(soup):
         try:
-            tag = soup.select_one("span.text-muted")
-            if tag:
-                raw = tag.get_text(strip=True)
-                print("📅 RAW tanggal ditemukan:", raw)
-                # Coba parsing dengan beberapa format
-                for fmt in ("%d-%m-%Y", "%d/%m/%Y", "%d %B %Y"):
-                    try:
-                        return datetime.strptime(raw, fmt).date()
-                    except:
-                        continue
-        except Exception as e:
-            print("[ERROR get_tanggal]:", e)
+            tag = soup.select_one("time[datetime]")
+            if tag and tag.has_attr("datetime"):
+                dt = tag["datetime"].split("T")[0]
+                return datetime.strptime(dt, "%Y-%m-%d").date()
+        except:
+            pass
         return None
-    
 
     def get_teks(soup):
         try:
-            div = soup.select_one("div.uk-article")
-            return div.get_text(" ", strip=True) if div else ""
+            content_div = soup.select_one("div.side-article.txt-article")
+            return content_div.get_text(" ", strip=True) if content_div else ""
         except:
             return ""
 
@@ -130,6 +128,7 @@ def parse_portal_lampungpro(keyword=None, start_date=None, end_date=None, max_pa
         try:
             r = requests.get(link, headers=headers, timeout=10)
             soup = BeautifulSoup(r.content, 'html.parser')
+
             tanggal = get_tanggal(soup)
             teks = get_teks(soup)
 
@@ -142,7 +141,7 @@ def parse_portal_lampungpro(keyword=None, start_date=None, end_date=None, max_pa
                     print("⏭️ Lewat: Di luar rentang tanggal")
                     continue
 
-            hasil.append({
+            results.append({
                 "link": link,
                 "tanggal": tanggal,
                 "teks": teks
@@ -154,4 +153,4 @@ def parse_portal_lampungpro(keyword=None, start_date=None, end_date=None, max_pa
             print(f"[ERROR] Gagal scraping artikel: {e}")
             continue
 
-    return hasil
+    return results
