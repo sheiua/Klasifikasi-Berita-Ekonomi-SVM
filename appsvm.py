@@ -5,7 +5,8 @@ from datetime import datetime
 from text_preprocessor import TextPreprocessor
 from parsers import (
     parse_portal_antara,
-    parse_portal_viva
+    parse_portal_viva,
+    parse_portal_lampost
 )
 
 # ✅ Load model klasifikasi
@@ -21,10 +22,10 @@ st.title("📡 Scraper & Klasifikasi Berita Ekonomi Lampung")
 # ✅ Pilih portal
 portal = st.selectbox(
     "📰 Pilih Portal Berita:",
-    ["Antara News Lampung", "Viva Lampung"]
+    ["Antara News Lampung", "Viva Lampung", "Lampung Post"]
 )
 
-# ✅ Rentang tanggal (tidak digunakan saat ini, bisa diaktifkan kembali nanti)
+# ✅ Rentang tanggal
 col1, col2 = st.columns(2)
 with col1:
     start_date = st.date_input("📅 Tanggal mulai", value=datetime(2024, 1, 1))
@@ -38,7 +39,8 @@ if st.button("🚀 Mulai Scraping & Klasifikasi"):
     # Mapping portal ke fungsi
     parser_map = {
         "Antara News Lampung": parse_portal_antara,
-        "Viva Lampung": parse_portal_viva
+        "Viva Lampung": parse_portal_viva,
+        "Lampung Post": parse_portal_lampost
     }
 
     parse_function = parser_map.get(portal)
@@ -46,9 +48,11 @@ if st.button("🚀 Mulai Scraping & Klasifikasi"):
         st.error("❌ Parser untuk portal tidak ditemukan.")
         st.stop()
 
-    # 🔄 Panggil parser tanpa keyword dan tanpa filter tanggal
+    # 🔄 Panggil parser dengan rentang tanggal
     hasil = parse_function(
-        max_pages=15
+        max_pages=15,
+        start_date=start_date,
+        end_date=end_date
     )
 
     if not hasil:
