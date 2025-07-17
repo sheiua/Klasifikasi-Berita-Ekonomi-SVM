@@ -79,6 +79,11 @@ def parse_portal_antara(keyword=None, start_date=None, end_date=None, max_pages=
     return results
 
 def parse_portal_viva(keyword=None, start_date=None, end_date=None, max_pages=10):
+    import requests
+    from bs4 import BeautifulSoup
+    from datetime import datetime
+    import time
+
     headers = {
         "User-Agent": "Mozilla/5.0"
     }
@@ -149,3 +154,4 @@ def parse_portal_viva(keyword=None, start_date=None, end_date=None, max_pages=10
             continue
 
     return results
+
