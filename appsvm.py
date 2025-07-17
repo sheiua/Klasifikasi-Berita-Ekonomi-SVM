@@ -21,11 +21,8 @@ st.title("📡 Scraper & Klasifikasi Berita Ekonomi Lampung")
 # ✅ Pilih portal
 portal = st.selectbox(
     "📰 Pilih Portal Berita:",
-    ["Antara News Lampung", "Viva Lampung"]  # Sesuaikan dengan key di parser_map
+    ["Antara News Lampung", "Viva Lampung"]
 )
-
-# ✅ Keyword opsional
-keyword = st.text_input("🔍 Masukkan keyword pencarian (opsional):", value="")
 
 # ✅ Rentang tanggal
 col1, col2 = st.columns(2)
@@ -38,7 +35,7 @@ with col2:
 if st.button("🚀 Mulai Scraping & Klasifikasi"):
     st.info(f"🔄 Scraping berita dari {portal}... Mohon tunggu sebentar ⏳")
 
-    # Mapping nama portal ke fungsi parser
+    # Mapping portal ke fungsi
     parser_map = {
         "Antara News Lampung": parse_portal_antara,
         "Viva Lampung": parse_portal_viva
@@ -49,11 +46,12 @@ if st.button("🚀 Mulai Scraping & Klasifikasi"):
         st.error("❌ Parser untuk portal tidak ditemukan.")
         st.stop()
 
+    # 🔄 Panggil parser tanpa keyword
     hasil = parse_function(
-        keyword if keyword.strip() else None,
-        start_date,
-        end_date,
-        max_pages=15  # Kamu bisa ubah jumlah halaman jika ingin lebih banyak
+        keyword=None,
+        start_date=start_date,
+        end_date=end_date,
+        max_pages=15
     )
 
     if not hasil:
@@ -65,12 +63,12 @@ if st.button("🚀 Mulai Scraping & Klasifikasi"):
     st.write(f"Jumlah artikel ditemukan: {len(df)}")
     st.dataframe(df[['tanggal', 'link']].head())
 
-    # ✅ Cek kolom teks
+    # ✅ Validasi isi teks artikel
     if "teks" not in df.columns or df["teks"].isnull().all() or df["teks"].str.strip().eq("").all():
         st.error("❌ Tidak ada isi artikel yang valid untuk diklasifikasi.")
         st.stop()
 
-    # ✅ Klasifikasi ekonomi
+    # ✅ Klasifikasi
     df['label'] = model.predict(df['teks'])
     df_ekonomi = df[df['label'] == 1]
 
@@ -80,7 +78,7 @@ if st.button("🚀 Mulai Scraping & Klasifikasi"):
         st.subheader("📄 Daftar Berita Ekonomi")
         st.dataframe(df_ekonomi[['tanggal', 'link', 'teks']])
 
-        # ✅ Simpan Excel
+        # ✅ Download Excel
         output_file = "Berita_Ekonomi.xlsx"
         df_ekonomi.to_excel(output_file, index=False)
 
