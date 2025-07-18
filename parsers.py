@@ -158,9 +158,9 @@ def get_isi_lampost(link):
         tgl = None
         if tgl_tag:
             tgl_str = tgl_tag.text.strip()
-            print("🗓️ Ditemukan tanggal:", tgl_str)
+            tgl_str = tgl_str.split("-")[0].strip()  # 🪓 Potong jam, ambil sebelum "-"
             try:
-                tgl = datetime.strptime(tgl_str, "%d/%m/%Y")
+                tgl = datetime.strptime(tgl_str, "%d/%m/%y")  # Gunakan %y karena tahunnya 2 digit (25)
             except Exception as e:
                 print("❌ Gagal parsing tanggal:", tgl_str, "->", e)
 
