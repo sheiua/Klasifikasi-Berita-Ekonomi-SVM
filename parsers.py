@@ -105,59 +105,37 @@ def parse_portal_viva(max_pages=5):
 
     return results
 
-def parse_portal_lampost(start_date=None, end_date=None, max_pages=5):
-    results = []
-    abjad = ["a", "e", "i", "o", "u"]
+def parse_portal_lampost(keyword='a', max_pages=3):
+    base_url = "https://lampost.co/page/{}?s={}"
+    hasil = []
 
-    for huruf in abjad:
-        for page in range(1, max_pages + 1):
-            url = f"https://lampost.co/page/{page}/?s={huruf}"
-            resp = requests.get(url)
-            soup = BeautifulSoup(resp.text, "html.parser")
-            articles = soup.select("div.card-content h2 a")
+    for page in range(1, max_pages+1):
+        url = base_url.format(page, keyword)
+        try:
+            r = requests.get(url, timeout=10)
+            soup = BeautifulSoup(r.content, "html.parser")
+            list_artikel = soup.find_all("h3", class_="jeg_post_title")
 
-            if not articles:
-                break
+            if not list_artikel:
+                print(f"Tidak ada artikel di halaman {page}")
+                continue
 
-            for a in articles:
-                link = a.get("href")
-                judul = a.text.strip()
-                isi, tanggal = get_isi_lampost(link)
-                if not isi or not tanggal:
+            for artikel in list_artikel:
+                a_tag = artikel.find("a")
+                if not a_tag:
                     continue
-                if start_date and tanggal < start_date: continue
-                if end_date and tanggal > end_date: continue
-                results.append({"tanggal": tanggal.strftime("%Y-%m-%d"), "judul": judul, "link": link, "isi": isi})
-                time.sleep(1)
-    return results
+                judul = a_tag.text.strip()
+                link = urljoin(url, a_tag["href"])
+                tanggal, isi = get_detail_lampost(link)  # ✅ ambil dari detail
 
-def get_detail_lampost(link):
-    try:
-        r = requests.get(link, timeout=10)
-        soup = BeautifulSoup(r.content, "html.parser")
+                hasil.append({
+                    "tanggal": tanggal,
+                    "judul": judul,
+                    "isi": isi,
+                    "link": link
+                })
 
-        # Ambil tanggal (string mentah)
-        tgl_raw = soup.find("div", class_="jeg_meta_date")
-        tanggal_str = tgl_raw.text.strip().split("–")[0].strip() if tgl_raw else None
+        except Exception as e:
+            print(f"❌ Gagal ambil halaman {page}: {e}")
 
-        # Konversi string tanggal ke format datetime.date
-        tanggal = None
-        if tanggal_str:
-            try:
-                # Contoh format: "Kamis, 17 Juli 2025"
-                tanggal = datetime.strptime(tanggal_str, "%A, %d %B %Y").date()
-            except ValueError:
-                # Coba format lain jika gagal
-                try:
-                    tanggal = datetime.strptime(tanggal_str, "%d %B %Y").date()
-                except:
-                    pass
-
-        # Ambil isi artikel
-        isi_konten = soup.find("div", class_="entry-content")
-        isi = isi_konten.get_text(separator="\n").strip() if isi_konten else None
-
-        return tanggal, isi
-    except Exception as e:
-        print(f"❌ Gagal ambil detail: {link}, error: {e}")
-        return None, None
+    return hasil
