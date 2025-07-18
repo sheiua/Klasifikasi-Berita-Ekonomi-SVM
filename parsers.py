@@ -147,28 +147,25 @@ def parse_portal_lampost(start_date=None, end_date=None, max_pages=5):
 
 def get_isi_lampost(link):
     try:
-        resp = requests.get(link, timeout=10)
+        resp = requests.get(link)
         soup = BeautifulSoup(resp.text, "html.parser")
 
-        # Ambil isi artikel
         konten = soup.select_one("div.detail-news-content") or soup.select_one("div.post-content")
         isi = konten.get_text(" ", strip=True) if konten else ""
 
-        # Ambil tanggal dari tag <time>
-        tgl_tag = soup.find("time")
-        tanggal = None
+        # Ambil tanggal dari halaman utama artikel
+        tgl_tag = soup.select_one("div.jeg_meta_date a")
+        tgl = None
         if tgl_tag:
             tgl_str = tgl_tag.text.strip()
+            print("🗓️ Ditemukan tanggal:", tgl_str)
+            try:
+                tgl = datetime.strptime(tgl_str, "%d/%m/%Y")
+            except Exception as e:
+                print("❌ Gagal parsing tanggal:", tgl_str, "->", e)
 
-            # Coba parse dengan format baru
-            for fmt in ["%d/%m/%y - %H:%M", "%A, %d %B %Y"]:
-                try:
-                    tanggal = datetime.strptime(tgl_str, fmt)
-                    break
-                except:
-                    continue
+        return isi, tgl
 
-        return isi, tanggal
     except Exception as e:
-        print(f"❌ Gagal ambil isi: {link}, error: {e}")
+        print("❌ Gagal get isi:", e)
         return "", None
