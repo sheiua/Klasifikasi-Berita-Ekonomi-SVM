@@ -159,8 +159,11 @@ def get_isi_lampost(link):
         resp = requests.get(link, timeout=10)
         soup = BeautifulSoup(resp.text, "html.parser")
 
-        konten = soup.select_one("div.detail-news-content") or soup.select_one("div.post-content")
+        # Gunakan selector yang benar-benar ada
+        konten = soup.select_one("div.content-inner")
         isi = konten.get_text(" ", strip=True) if konten else ""
+        if not isi:
+            print(f"⚠️ Tidak ditemukan isi untuk: {link}")
 
         # Ambil tanggal
         tgl_tag = soup.select_one("div.jeg_meta_date a")
@@ -168,10 +171,10 @@ def get_isi_lampost(link):
         if tgl_tag:
             tgl_str_full = tgl_tag.text.strip()
             print("🗓️ Ditemukan tanggal (mentah):", tgl_str_full)
-            tgl_str = tgl_str_full.split("-")[0].strip()  # Ambil bagian tanggal sebelum jam
+            tgl_str = tgl_str_full.split("-")[0].strip()
 
             try:
-                tgl = datetime.strptime(tgl_str, "%d/%m/%y")  # Format 2 digit tahun
+                tgl = datetime.strptime(tgl_str, "%d/%m/%y")
             except Exception as e:
                 print("❌ Gagal parsing tanggal:", tgl_str, "->", e)
 
