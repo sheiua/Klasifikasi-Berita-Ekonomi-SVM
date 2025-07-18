@@ -16,73 +16,88 @@ def load_model():
 
 model = load_model()
 
-# ✅ Judul aplikasi
 st.title("📡 Scraper & Klasifikasi Berita Ekonomi Lampung")
 
-# ✅ Pilih portal
-portal = st.selectbox(
-    "📰 Pilih Portal Berita:",
-    ["Antara News Lampung", "Viva Lampung", "Lampung Post"]
-)
+portal = st.selectbox("📰 Pilih Portal Berita:", [
+    "Antara News Lampung", 
+    "Viva Lampung", 
+    "Lampung Post"
+])
 
-# ✅ Rentang tanggal
 col1, col2 = st.columns(2)
 with col1:
     start_date = st.date_input("📅 Tanggal mulai", value=datetime(2024, 1, 1))
 with col2:
     end_date = st.date_input("📅 Tanggal akhir", value=datetime(2025, 12, 31))
 
-# ✅ Tombol proses
-if st.button("🚀 Mulai Scraping & Klasifikasi"):
-    st.info(f"🔄 Scraping berita dari {portal}... Mohon tunggu sebentar ⏳")
-
-    # Mapping portal ke fungsi
-    parser_map = {
-        "Antara News Lampung": parse_portal_antara,
-        "Viva Lampung": parse_portal_viva,
-        "Lampung Post": parse_portal_lampost
+# ✅ Mapping fungsi parser
+parser_map = {
+    "Antara News Lampung": {
+        "func": parse_portal_antara,
+        "support_date": True
+    },
+    "Viva Lampung": {
+        "func": parse_portal_viva,
+        "support_date": False  # tidak support start_date, end_date
+    },
+    "Lampung Post": {
+        "func": parse_portal_lampost,
+        "support_date": True
     }
+}
 
-    parse_function = parser_map.get(portal)
-    if not parse_function:
-        st.error("❌ Parser untuk portal tidak ditemukan.")
+if st.button("🚀 Mulai Scraping & Klasifikasi"):
+    st.info(f"🔄 Scraping berita dari {portal}...")
+
+    parser_info = parser_map[portal]
+    parse_function = parser_info["func"]
+
+    try:
+        if parser_info["support_date"]:
+            hasil = parse_function(
+                max_pages=10,
+                start_date=start_date,
+                end_date=end_date
+            )
+        else:
+            hasil = parse_function(max_pages=10)  # Tanpa start_date/end_date
+    except Exception as e:
+        st.error(f"❌ Gagal scraping: {e}")
         st.stop()
-
-    # 🔄 Panggil parser dengan rentang tanggal
-    hasil = parse_function(
-        max_pages=15,
-        start_date=start_date,
-        end_date=end_date
-    )
 
     if not hasil:
         st.warning("⚠️ Tidak ada artikel ditemukan.")
         st.stop()
 
     df = pd.DataFrame(hasil)
-    st.subheader("📋 Hasil Scraping")
-    st.write(f"Jumlah artikel ditemukan: {len(df)}")
-    if 'tanggal' in df.columns:
-        st.dataframe(df[['tanggal', 'link']].head())
-    else:
-        st.dataframe(df[['link']].head())
 
-    # ✅ Validasi isi teks artikel
-    if "isi" not in df.columns or df["isi"].isnull().all() or df["isi"].str.strip().eq("").all():
-        st.error("❌ Tidak ada isi artikel yang valid untuk diklasifikasi.")
+    if not df.empty and "tanggal" in df.columns and parser_info["support_date"]:
+        # Kalau support tanggal, filter ulang berdasarkan input user
+        df['tanggal'] = pd.to_datetime(df['tanggal'], errors='coerce')
+        df = df[(df['tanggal'] >= pd.to_datetime(start_date)) & (df['tanggal'] <= pd.to_datetime(end_date))]
+
+    if df.empty:
+        st.warning("⚠️ Tidak ada artikel ditemukan dalam rentang tanggal yang dipilih.")
         st.stop()
 
-    # ✅ Klasifikasi
+    st.subheader("📋 Hasil Scraping")
+    st.write(f"Jumlah artikel ditemukan: {len(df)}")
+    st.dataframe(df[['judul', 'link']] if 'judul' in df.columns else df[['link']])
+
+    # ❗ Pastikan kolom 'isi' ada
+    if "isi" not in df.columns or df["isi"].isnull().all() or df["isi"].str.strip().eq("").all():
+        st.error("❌ Tidak ada isi artikel valid untuk klasifikasi.")
+        st.stop()
+
     df['label'] = model.predict(df['isi'])
     df_ekonomi = df[df['label'] == 1]
 
-    st.success(f"✅ Jumlah berita bertopik ekonomi: {len(df_ekonomi)}")
+    st.success(f"✅ Jumlah berita ekonomi: {len(df_ekonomi)}")
 
     if not df_ekonomi.empty:
         st.subheader("📄 Daftar Berita Ekonomi")
-        st.dataframe(df_ekonomi[['link', 'isi']])
+        st.dataframe(df_ekonomi[['judul', 'link', 'isi']] if 'judul' in df_ekonomi.columns else df_ekonomi[['link', 'isi']])
 
-        # ✅ Download Excel
         output_file = "Berita_Ekonomi.xlsx"
         df_ekonomi.to_excel(output_file, index=False)
 
