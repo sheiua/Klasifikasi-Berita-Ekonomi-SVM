@@ -115,7 +115,7 @@ def parse_portal_lampost(start_date=None, end_date=None, max_pages=5):
             try:
                 resp = requests.get(url, timeout=10)
                 soup = BeautifulSoup(resp.text, "html.parser")
-                articles = soup.select("div.card-content h2 a")
+                articles = soup.select("div.jeg_postblock_content h3 a")
 
                 if not articles:
                     break
