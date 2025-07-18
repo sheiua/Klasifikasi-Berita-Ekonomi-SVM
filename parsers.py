@@ -105,37 +105,70 @@ def parse_portal_viva(max_pages=5):
 
     return results
 
-def parse_portal_lampost(keyword='a', max_pages=3):
-    base_url = "https://lampost.co/page/{}?s={}"
-    hasil = []
+def parse_portal_lampost(start_date=None, end_date=None, max_pages=5):
+    results = []
+    abjad = ["a", "e", "i", "o", "u"]
 
-    for page in range(1, max_pages+1):
-        url = base_url.format(page, keyword)
-        try:
-            r = requests.get(url, timeout=10)
-            soup = BeautifulSoup(r.content, "html.parser")
-            list_artikel = soup.find_all("h3", class_="jeg_post_title")
+    for huruf in abjad:
+        for page in range(1, max_pages + 1):
+            url = f"https://lampost.co/page/{page}/?s={huruf}"
+            try:
+                resp = requests.get(url, timeout=10)
+                soup = BeautifulSoup(resp.text, "html.parser")
+                articles = soup.select("div.card-content h2 a")
 
-            if not list_artikel:
-                print(f"Tidak ada artikel di halaman {page}")
+                if not articles:
+                    break
+
+                for a in articles:
+                    link = a.get("href")
+                    judul = a.text.strip()
+                    isi, tanggal = get_isi_lampost(link)
+                    if not isi or not tanggal:
+                        continue
+
+                    if start_date and tanggal.date() < start_date:
+                        continue
+                    if end_date and tanggal.date() > end_date:
+                        continue
+
+                    results.append({
+                        "tanggal": tanggal.strftime("%Y-%m-%d"),
+                        "judul": judul,
+                        "link": link,
+                        "isi": isi
+                    })
+
+                    time.sleep(1)
+            except Exception as e:
+                print(f"❌ Gagal ambil halaman {page}: {e}")
                 continue
+    return results
 
-            for artikel in list_artikel:
-                a_tag = artikel.find("a")
-                if not a_tag:
+def get_isi_lampost(link):
+    try:
+        resp = requests.get(link, timeout=10)
+        soup = BeautifulSoup(resp.text, "html.parser")
+
+        # Ambil isi artikel
+        konten = soup.select_one("div.detail-news-content") or soup.select_one("div.post-content")
+        isi = konten.get_text(" ", strip=True) if konten else ""
+
+        # Ambil tanggal dari tag <time>
+        tgl_tag = soup.find("time")
+        tanggal = None
+        if tgl_tag:
+            tgl_str = tgl_tag.text.strip()
+
+            # Coba parse dengan format baru
+            for fmt in ["%d/%m/%y - %H:%M", "%A, %d %B %Y"]:
+                try:
+                    tanggal = datetime.strptime(tgl_str, fmt)
+                    break
+                except:
                     continue
-                judul = a_tag.text.strip()
-                link = urljoin(url, a_tag["href"])
-                tanggal, isi = get_detail_lampost(link)  # ✅ ambil dari detail
 
-                hasil.append({
-                    "tanggal": tanggal,
-                    "judul": judul,
-                    "isi": isi,
-                    "link": link
-                })
-
-        except Exception as e:
-            print(f"❌ Gagal ambil halaman {page}: {e}")
-
-    return hasil
+        return isi, tanggal
+    except Exception as e:
+        print(f"❌ Gagal ambil isi: {link}, error: {e}")
+        return "", None
