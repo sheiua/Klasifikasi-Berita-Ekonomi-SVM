@@ -131,45 +131,33 @@ def parse_portal_lampost(start_date=None, end_date=None, max_pages=5):
                 time.sleep(1)
     return results
 
-def parse_portal_lampost(start_date=None, end_date=None, max_pages=5):
-    results = []
-    abjad = ["a", "e", "i", "o", "u"]
-
-    for huruf in abjad:
-        for page in range(1, max_pages + 1):
-            url = f"https://lampost.co/page/{page}/?s={huruf}"
-            resp = requests.get(url)
-            soup = BeautifulSoup(resp.text, "html.parser")
-            articles = soup.select("div.card-content h2 a")
-
-            if not articles:
-                break
-
-            for a in articles:
-                link = a.get("href")
-                judul = a.text.strip()
-                isi, tanggal = get_isi_lampost(link)
-                if not isi or not tanggal:
-                    continue
-                if start_date and tanggal < start_date: continue
-                if end_date and tanggal > end_date: continue
-                results.append({"tanggal": tanggal.strftime("%Y-%m-%d"), "judul": judul, "link": link, "isi": isi})
-                time.sleep(1)
-    return results
-
-def get_isi_lampost(link):
+def get_detail_lampost(link):
     try:
-        resp = requests.get(link)
-        soup = BeautifulSoup(resp.text, "html.parser")
-        konten = soup.select_one("div.detail-news-content") or soup.select_one("div.post-content")
-        isi = konten.get_text(" ", strip=True) if konten else ""
-        tgl_tag = soup.find("time")
-        tgl = None
-        if tgl_tag:
+        r = requests.get(link, timeout=10)
+        soup = BeautifulSoup(r.content, "html.parser")
+
+        # Ambil tanggal (string mentah)
+        tgl_raw = soup.find("div", class_="jeg_meta_date")
+        tanggal_str = tgl_raw.text.strip().split("–")[0].strip() if tgl_raw else None
+
+        # Konversi string tanggal ke format datetime.date
+        tanggal = None
+        if tanggal_str:
             try:
-                tgl = datetime.strptime(tgl_tag.text.strip(), "%A, %d %B %Y")
-            except:
-                pass
-        return isi, tgl
-    except:
-        return "", None
+                # Contoh format: "Kamis, 17 Juli 2025"
+                tanggal = datetime.strptime(tanggal_str, "%A, %d %B %Y").date()
+            except ValueError:
+                # Coba format lain jika gagal
+                try:
+                    tanggal = datetime.strptime(tanggal_str, "%d %B %Y").date()
+                except:
+                    pass
+
+        # Ambil isi artikel
+        isi_konten = soup.find("div", class_="entry-content")
+        isi = isi_konten.get_text(separator="\n").strip() if isi_konten else None
+
+        return tanggal, isi
+    except Exception as e:
+        print(f"❌ Gagal ambil detail: {link}, error: {e}")
+        return None, None
