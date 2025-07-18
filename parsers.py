@@ -118,15 +118,19 @@ def parse_portal_lampost(start_date=None, end_date=None, max_pages=5):
                 articles = soup.select("div.jeg_postblock_content h3 a")
 
                 if not articles:
+                    print(f"⚠️ Tidak ada artikel di page {page} untuk huruf '{huruf}'")
                     continue
 
                 for a in articles:
                     link = a.get("href")
                     judul = a.text.strip()
                     isi, tanggal = get_isi_lampost(link)
+
                     if not isi or not tanggal:
+                        print(f"⛔ Lewat karena isi/tanggal kosong: {judul}")
                         continue
 
+                    # Filter tanggal
                     if start_date and tanggal.date() < start_date:
                         print("⏩ Lewat karena sebelum rentang:", tanggal.date(), "| Rentang:", start_date, "-", end_date)
                         continue
@@ -135,7 +139,7 @@ def parse_portal_lampost(start_date=None, end_date=None, max_pages=5):
                         continue
 
                     print("✅ Disimpan:", tanggal.date(), "| Judul:", judul)
-                    
+
                     results.append({
                         "tanggal": tanggal.strftime("%Y-%m-%d"),
                         "judul": judul,
@@ -149,27 +153,30 @@ def parse_portal_lampost(start_date=None, end_date=None, max_pages=5):
                 continue
     return results
 
+
 def get_isi_lampost(link):
     try:
-        resp = requests.get(link)
+        resp = requests.get(link, timeout=10)
         soup = BeautifulSoup(resp.text, "html.parser")
 
         konten = soup.select_one("div.detail-news-content") or soup.select_one("div.post-content")
         isi = konten.get_text(" ", strip=True) if konten else ""
 
-        # Ambil tanggal dari halaman utama artikel
+        # Ambil tanggal
         tgl_tag = soup.select_one("div.jeg_meta_date a")
         tgl = None
         if tgl_tag:
-            tgl_str = tgl_tag.text.strip()
-            tgl_str = tgl_str.split("-")[0].strip()  # 🪓 Potong jam, ambil sebelum "-"
+            tgl_str_full = tgl_tag.text.strip()
+            print("🗓️ Ditemukan tanggal (mentah):", tgl_str_full)
+            tgl_str = tgl_str_full.split("-")[0].strip()  # Ambil bagian tanggal sebelum jam
+
             try:
-                tgl = datetime.strptime(tgl_str, "%d/%m/%y")  # Gunakan %y karena tahunnya 2 digit (25)
+                tgl = datetime.strptime(tgl_str, "%d/%m/%y")  # Format 2 digit tahun
             except Exception as e:
                 print("❌ Gagal parsing tanggal:", tgl_str, "->", e)
 
         return isi, tgl
 
     except Exception as e:
-        print("❌ Gagal get isi:", e)
+        print("❌ Gagal ambil isi:", e)
         return "", None
