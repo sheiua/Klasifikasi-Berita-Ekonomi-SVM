@@ -84,48 +84,24 @@ def parse_portal_viva(max_pages=5):
 
     for page in range(1, max_pages + 1):
         url = base_url + str(page)
-        try:
-            response = requests.get(url, timeout=10)
-            if response.status_code != 200:
-                print(f"Gagal mengakses halaman: {url}")
+        response = requests.get(url, timeout=10)
+        soup = BeautifulSoup(response.text, "html.parser")
+        article_links = soup.find_all("a", class_="article-list-thumb-link")
+
+        for link_tag in article_links:
+            link = link_tag.get("href")
+            if not link.startswith("http"):
+                link = "https://lampung.viva.co.id" + link
+            try:
+                res = requests.get(link, timeout=10)
+                detail_soup = BeautifulSoup(res.text, "html.parser")
+                title = detail_soup.find("h1").get_text(strip=True)
+                paragraphs = detail_soup.find_all("p")
+                isi = "\n".join(p.get_text(strip=True) for p in paragraphs)
+                results.append({"judul": title, "link": link, "isi": isi})
+                time.sleep(1)
+            except:
                 continue
-
-            soup = BeautifulSoup(response.text, "html.parser")
-            article_links = soup.find_all("a", class_="article-list-thumb-link")
-
-            for link_tag in article_links:
-                link = link_tag.get("href")
-                if not link.startswith("http"):
-                    link = "https://lampung.viva.co.id" + link
-
-                try:
-                    res = requests.get(link, timeout=10)
-                    if res.status_code != 200:
-                        continue
-
-                    detail_soup = BeautifulSoup(res.text, "html.parser")
-
-                    # Judul
-                    title_tag = detail_soup.find("h1")
-                    title = title_tag.get_text(strip=True) if title_tag else "Tidak ada judul"
-
-                    # Isi konten
-                    paragraphs = detail_soup.find_all("p")
-                    isi = "\n".join([p.get_text(strip=True) for p in paragraphs if p.get_text(strip=True)])
-
-                    results.append({
-                        "judul": title,
-                        "link": link,
-                        "isi": isi
-                    })
-
-                    time.sleep(1)  # agar tidak diblok
-
-                except Exception as e:
-                    print("Gagal mengambil detail artikel:", e)
-
-        except Exception as e:
-            print("Gagal membuka halaman utama:", e)
 
     return results
 
@@ -147,41 +123,53 @@ def parse_portal_lampost(start_date=None, end_date=None, max_pages=5):
                 link = a.get("href")
                 judul = a.text.strip()
                 isi, tanggal = get_isi_lampost(link)
-
                 if not isi or not tanggal:
                     continue
-
                 if start_date and tanggal < start_date: continue
                 if end_date and tanggal > end_date: continue
+                results.append({"tanggal": tanggal.strftime("%Y-%m-%d"), "judul": judul, "link": link, "isi": isi})
+                time.sleep(1)
+    return results
 
-                results.append({
-                    "tanggal": tanggal.strftime("%Y-%m-%d"),
-                    "judul": judul,
-                    "link": link,
-                    "isi": isi
-                })
+def parse_portal_lampost(start_date=None, end_date=None, max_pages=5):
+    results = []
+    abjad = ["a", "e", "i", "o", "u"]
 
-            time.sleep(1)
+    for huruf in abjad:
+        for page in range(1, max_pages + 1):
+            url = f"https://lampost.co/page/{page}/?s={huruf}"
+            resp = requests.get(url)
+            soup = BeautifulSoup(resp.text, "html.parser")
+            articles = soup.select("div.card-content h2 a")
+
+            if not articles:
+                break
+
+            for a in articles:
+                link = a.get("href")
+                judul = a.text.strip()
+                isi, tanggal = get_isi_lampost(link)
+                if not isi or not tanggal:
+                    continue
+                if start_date and tanggal < start_date: continue
+                if end_date and tanggal > end_date: continue
+                results.append({"tanggal": tanggal.strftime("%Y-%m-%d"), "judul": judul, "link": link, "isi": isi})
+                time.sleep(1)
     return results
 
 def get_isi_lampost(link):
     try:
         resp = requests.get(link)
         soup = BeautifulSoup(resp.text, "html.parser")
-
         konten = soup.select_one("div.detail-news-content") or soup.select_one("div.post-content")
-        isi = konten.get_text(separator=" ", strip=True) if konten else ""
-
+        isi = konten.get_text(" ", strip=True) if konten else ""
         tgl_tag = soup.find("time")
+        tgl = None
         if tgl_tag:
-            tgl_str = tgl_tag.text.strip()
             try:
-                tgl = datetime.strptime(tgl_str, "%A, %d %B %Y")
+                tgl = datetime.strptime(tgl_tag.text.strip(), "%A, %d %B %Y")
             except:
-                tgl = None
-        else:
-            tgl = None
-
+                pass
         return isi, tgl
     except:
         return "", None
