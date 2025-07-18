@@ -128,10 +128,14 @@ def parse_portal_lampost(start_date=None, end_date=None, max_pages=5):
                         continue
 
                     if start_date and tanggal.date() < start_date:
+                        print("⏩ Lewat karena sebelum rentang:", tanggal.date(), "| Rentang:", start_date, "-", end_date)
                         continue
                     if end_date and tanggal.date() > end_date:
+                        print("⏩ Lewat karena setelah rentang:", tanggal.date(), "| Rentang:", start_date, "-", end_date)
                         continue
 
+                    print("✅ Disimpan:", tanggal.date(), "| Judul:", judul)
+                    
                     results.append({
                         "tanggal": tanggal.strftime("%Y-%m-%d"),
                         "judul": judul,
