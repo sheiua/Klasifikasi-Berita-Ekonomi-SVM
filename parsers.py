@@ -32,15 +32,16 @@ def parse_portal_antara(keyword=None, start_date=None, end_date=None, max_pages=
                 print(f"[ERROR] Gagal ambil halaman: {e}")
                 continue
 
+        print(f"🔗 Total link ditemukan: {len(links)}")
         return links
 
     def get_tanggal(soup):
         try:
             time_tag = soup.find("time", itemprop="datePublished")
             if time_tag and time_tag.has_attr("datetime"):
-                raw = time_tag["datetime"]  # Format: "Mon, 21 Jul 2025 09:27:54 +0700"
-                tanggal = raw.split(",")[1].strip().split(" ")[0:3]  # ['21', 'Jul', '2025']
-                date_str = " ".join(tanggal)  # '21 Jul 2025'
+                raw = time_tag["datetime"]
+                tanggal = raw.split(",")[1].strip().split(" ")[0:3]
+                date_str = " ".join(tanggal)
                 return datetime.strptime(date_str, "%d %b %Y").date()
         except Exception as e:
             print(f"[tanggal ERROR] {e}")
@@ -53,7 +54,7 @@ def parse_portal_antara(keyword=None, start_date=None, end_date=None, max_pages=
                 return ""
             paragraphs = konten.find_all('p')
             isi = " ".join(p.get_text(strip=True) for p in paragraphs if "ads_antaranews" not in p.get("class", []))
-            return isi.split("Baca juga:")[0]  # jika ingin memotong bagian "Baca juga"
+            return isi.split("Baca juga:")[0]
         except Exception as e:
             print(f"[konten ERROR] {e}")
             return ""
@@ -62,6 +63,8 @@ def parse_portal_antara(keyword=None, start_date=None, end_date=None, max_pages=
 
     for i, link in enumerate(links):
         try:
+            print(f"📄 Artikel ke-{i+1}")
+            print(f"🔗 Link: {link}")
             r = requests.get(link, headers=headers, timeout=10)
             soup = BeautifulSoup(r.content, 'html.parser')
 
@@ -70,9 +73,13 @@ def parse_portal_antara(keyword=None, start_date=None, end_date=None, max_pages=
 
             if start_date and end_date:
                 if tanggal is None or not (start_date <= tanggal <= end_date):
+                    print(f"⏩ Lewat (tanggal tidak sesuai): {tanggal}")
                     continue
 
-           judul = soup.find("h1").get_text(strip=True) if soup.find("h1") else "Tanpa Judul"
+            judul = soup.find("h1").get_text(strip=True) if soup.find("h1") else "Tanpa Judul"
+            print(f"📅 Tanggal: {tanggal}")
+            print(f"📛 Judul: {judul}")
+
             results.append({
                 "judul": judul,
                 "link": link,
@@ -85,6 +92,7 @@ def parse_portal_antara(keyword=None, start_date=None, end_date=None, max_pages=
             print(f"[ERROR] Gagal scraping artikel: {e}")
             continue
 
+    print(f"✅ Total artikel berhasil diambil: {len(results)}")
     return results
 
 def parse_portal_viva(max_pages=5):
