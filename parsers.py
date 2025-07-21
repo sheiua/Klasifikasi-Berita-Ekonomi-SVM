@@ -151,54 +151,77 @@ def parse_portal_viva(keyword=None, start_date=None, end_date=None, max_pages=10
 
     return results
 
-def parse_portal_lampost(keyword=None, start_date=None, end_date=None, max_pages=10):
-    results = []
-    headers = {
-        "User-Agent": "Mozilla/5.0"
-    }
+def get_detail_lampost(link):
+    try:
+        r = requests.get(link, timeout=10)
+        soup = BeautifulSoup(r.content, "html.parser")
 
-    for page in range(1, max_pages+1):
-        url = f"https://lampost.co/page/{page}/?s={keyword}" if keyword else f"https://lampost.co/page/{page}"
+        # Ambil tanggal
+        tgl_raw = soup.find("div", class_="jeg_meta_date")
+        tanggal = None
+        if tgl_raw:
+            raw_text = tgl_raw.text.strip().split("–")[0].strip()
+            try:
+                tanggal = datetime.strptime(raw_text, "%d %B %Y").date()
+            except:
+                pass
+
+        # Ambil isi artikel
+        isi_konten = soup.find("div", class_="entry-content")
+        isi = isi_konten.get_text(separator="\n").strip() if isi_konten else ""
+
+        return tanggal, isi
+    except Exception as e:
+        print(f"❌ Gagal ambil detail: {link}, error: {e}")
+        return None, ""
+
+def parse_portal_lampost(keyword="a", start_date=None, end_date=None, max_pages=3):
+    base_url = "https://lampost.co/page/{}?s={}"
+    hasil = []
+
+    for page in range(1, max_pages + 1):
+        url = base_url.format(page, keyword)
+        print(f"🔎 Mengambil halaman: {url}")
         try:
-            res = requests.get(url, headers=headers, timeout=10)
-            soup = BeautifulSoup(res.content, 'html.parser')
-            articles = soup.find_all('h2', class_='title')
-            for art in articles:
-                a = art.find('a', href=True)
-                if not a:
+            r = requests.get(url, timeout=10)
+            soup = BeautifulSoup(r.content, "html.parser")
+            list_artikel = soup.find_all("h3", class_="jeg_post_title")
+
+            if not list_artikel:
+                print(f"⚠️ Tidak ada artikel di halaman {page}")
+                continue
+
+            for artikel in list_artikel:
+                a_tag = artikel.find("a")
+                if not a_tag:
                     continue
-                link = a['href']
-                r = requests.get(link, headers=headers, timeout=10)
-                artikel = BeautifulSoup(r.content, 'html.parser')
+                judul = a_tag.text.strip()
+                link = urljoin(url, a_tag["href"])
 
-                judul = artikel.find('h1').get_text(strip=True) if artikel.find('h1') else 'Tanpa Judul'
-                tanggal = None
-                time_tag = artikel.find('time')
-                if time_tag:
-                    try:
-                        tanggal = datetime.strptime(time_tag.text.strip(), "%A, %d %B %Y %H:%M WIB").date()
-                    except:
-                        pass
+                tanggal, isi = get_detail_lampost(link)
+                if not tanggal:
+                    continue
 
-                isi_konten = artikel.find('div', class_='content')
-                isi = ""
-                if isi_konten:
-                    isi = " ".join(p.get_text(strip=True) for p in isi_konten.find_all("p"))
-
+                # Filter tanggal
                 if start_date and end_date:
-                    if tanggal is None or not (start_date <= tanggal <= end_date):
+                    if not (start_date <= tanggal <= end_date):
+                        print(f"⏩ Lewat (tanggal tidak sesuai): {tanggal}")
                         continue
 
-                results.append({
+                print(f"📄 Artikel: {judul}")
+                print(f"📅 Tanggal: {tanggal}")
+
+                hasil.append({
                     "judul": judul,
-                    "link": link,
                     "tanggal": tanggal,
-                    "isi": isi
+                    "isi": isi,
+                    "link": link
                 })
 
                 time.sleep(1)
-        except Exception as e:
-            print(f"[Lampost ERROR] {e}")
-            continue
 
-    return results
+        except Exception as e:
+            print(f"❌ Gagal ambil halaman {page}: {e}")
+
+    print(f"✅ Total artikel dari Lampung Post: {len(hasil)}")
+    return hasil
