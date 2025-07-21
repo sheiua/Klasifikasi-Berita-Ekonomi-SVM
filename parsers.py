@@ -2,6 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
 import time
+import re
 
 def parse_portal_antara(keyword=None, start_date=None, end_date=None, max_pages=10):
     headers = {
@@ -175,68 +176,82 @@ def get_detail_lampost(link):
         print(f"❌ Gagal ambil detail: {link}, error: {e}")
         return None, ""
 
-def parse_portal_lampost(keyword='a', start_date=None, end_date=None, max_pages=3):
-    from datetime import datetime
-    from urllib.parse import urljoin
-    import requests
-    from bs4 import BeautifulSoup
+def parse_portal_lampost(keyword=None, start_date=None, end_date=None, max_pages=10):
+    base_url = "https://lampost.co/berita-terkini"
+    headers = {
+        "User-Agent": "Mozilla/5.0"
+    }
 
-    def get_detail_lampost(link):
+    results = []
+
+    def get_list_links(page):
+        url = f"{base_url}/{page}" if page > 1 else base_url
+        res = requests.get(url, headers=headers)
+        if res.status_code != 200:
+            return []
+
+        soup = BeautifulSoup(res.content, "html.parser")
+        cards = soup.find_all("div", class_="jeg_postblock_content")
+        links = []
+        for card in cards:
+            a_tag = card.find("a")
+            if a_tag:
+                links.append(a_tag["href"])
+        return links
+
+    def parse_tanggal_lampost(raw_text):
+        match = re.search(r"\d{2}/\d{2}/\d{2} - \d{2}:\d{2}", raw_text)
+        if match:
+            return match.group()
+        return None
+
+    def get_detail(link):
+        res = requests.get(link, headers=headers)
+        if res.status_code != 200:
+            return None
+
+        soup = BeautifulSoup(res.content, "html.parser")
+
+        # Ambil tanggal dari meta
+        tanggal_tag = soup.find("div", class_="jeg_meta_date")
+        tanggal_str = parse_tanggal_lampost(tanggal_tag.text) if tanggal_tag else None
+
+        if not tanggal_str:
+            return None
+
         try:
-            r = requests.get(link, timeout=10)
-            soup = BeautifulSoup(r.content, "html.parser")
+            tanggal_dt = datetime.strptime(tanggal_str, "%y/%m/%d - %H:%M").date()
+        except:
+            return None
 
-            tgl_raw = soup.find("div", class_="jeg_meta_date")
-            tanggal = tgl_raw.text.strip().split("–")[0].strip() if tgl_raw else None
+        if start_date and tanggal_dt < start_date:
+            return None
+        if end_date and tanggal_dt > end_date:
+            return None
 
-            isi_konten = soup.find("div", class_="entry-content")
-            isi = isi_konten.get_text(separator="\n").strip() if isi_konten else None
+        # Ambil isi artikel
+        konten_tag = soup.find("div", class_="content-inner")
+        isi = ""
+        if konten_tag:
+            paragraphs = konten_tag.find_all("p")
+            isi = "\n".join(p.get_text(strip=True) for p in paragraphs)
 
-            return tanggal, isi
-        except Exception as e:
-            print(f"❌ Gagal ambil detail: {link}, error: {e}")
-            return None, None
-
-    base_url = "https://lampost.co/page/{}?s={}"
-    hasil = []
+        return {
+            "tanggal": tanggal_dt,
+            "link": link,
+            "isi": isi
+        }
 
     for page in range(1, max_pages + 1):
-        url = base_url.format(page, keyword)
-        try:
-            r = requests.get(url, timeout=10)
-            soup = BeautifulSoup(r.content, "html.parser")
-            list_artikel = soup.find_all("h3", class_="jeg_post_title")
+        links = get_list_links(page)
+        if not links:
+            break
 
-            if not list_artikel:
-                print(f"Tidak ada artikel di halaman {page}")
-                continue
+        for link in links:
+            detail = get_detail(link)
+            if detail:
+                results.append(detail)
 
-            for artikel in list_artikel:
-                a_tag = artikel.find("a")
-                if not a_tag:
-                    continue
-                judul = a_tag.text.strip()
-                link = urljoin(url, a_tag["href"])
-                tanggal_str, isi = get_detail_lampost(link)
+        time.sleep(1)
 
-                if tanggal_str:
-                    try:
-                        tanggal_dt = datetime.strptime(tanggal_str, "%d %B %Y").date()
-                        if start_date and tanggal_dt < start_date:
-                            continue
-                        if end_date and tanggal_dt > end_date:
-                            continue
-                    except Exception as e:
-                        print(f"❌ Format tanggal salah: {tanggal_str}, error: {e}")
-                        continue
-
-                hasil.append({
-                    "tanggal": tanggal_str,
-                    "judul": judul,
-                    "isi": isi,
-                    "link": link
-                })
-        except Exception as e:
-            print(f"❌ Gagal ambil halaman {page}: {e}")
-
-    return hasil
+    return results
