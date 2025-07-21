@@ -6,8 +6,7 @@ from text_preprocessor import TextPreprocessor
 from parsers import (
     parse_portal_antara,
     parse_portal_viva,
-    parse_portal_lampost,
-    parse_portal_lampungpro  # ✅ Ganti dari Radar Lampung
+    parse_portal_lampost
 )
 
 # ✅ Load model klasifikasi
@@ -22,8 +21,7 @@ st.title("📡 Scraper & Klasifikasi Berita Ekonomi Lampung")
 portal = st.selectbox("📰 Pilih Portal Berita:", [
     "Antara News Lampung", 
     "Viva Lampung", 
-    "Lampung Post",
-    "Lampungpro"  # ✅ Ganti pilihan portal
+    "Lampung Post"
 ])
 
 col1, col2 = st.columns(2)
@@ -45,10 +43,6 @@ parser_map = {
     "Lampung Post": {
         "func": parse_portal_lampost,
         "support_date": True
-    },
-    "Lampungpro": {
-        "func": parse_portal_lampungpro,
-        "support_date": True  # ✅ karena kita filter saat scraping
     }
 }
 
