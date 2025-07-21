@@ -183,3 +183,88 @@ def get_isi_lampost(link):
     except Exception as e:
         print("❌ Gagal ambil isi:", e)
         return "", None
+
+def parse_portal_radarlampung_beranda(start_date=None, end_date=None, max_pages=5):
+    results = []
+    for page in range(1, max_pages + 1):
+        if page == 1:
+            url = "https://radarlampung.disway.id/"
+        else:
+            url = f"https://radarlampung.disway.id/page/{page}"
+
+        try:
+            resp = requests.get(url, timeout=10)
+            soup = BeautifulSoup(resp.text, "html.parser")
+            links = soup.select("div.media-heading a")
+
+            if not links:
+                print(f"⚠️ Tidak ada artikel di halaman {page}")
+                continue
+
+            for a in links:
+                link = a.get("href")
+                judul = a.text.strip()
+                isi, tanggal = get_isi_radarlampung(link)
+
+                if not isi or not tanggal:
+                    print(f"⛔ Lewat karena isi/tanggal kosong: {judul}")
+                    continue
+
+                # Filter tanggal
+                if start_date and tanggal.date() < start_date:
+                    print("⏩ Lewat karena sebelum rentang:", tanggal.date())
+                    continue
+                if end_date and tanggal.date() > end_date:
+                    print("⏩ Lewat karena setelah rentang:", tanggal.date())
+                    continue
+
+                print("✅ Disimpan:", tanggal.date(), "| Judul:", judul)
+
+                results.append({
+                    "tanggal": tanggal.strftime("%Y-%m-%d"),
+                    "judul": judul,
+                    "link": link,
+                    "isi": isi
+                })
+
+                time.sleep(1)
+
+        except Exception as e:
+            print(f"❌ Gagal ambil halaman {page}: {e}")
+            continue
+
+    return results
+
+
+def get_isi_radarlampung(link):
+    try:
+        resp = requests.get(link, timeout=10)
+        soup = BeautifulSoup(resp.text, "html.parser")
+
+        # Ambil isi konten utama
+        konten = soup.select_one("div.entry-content")
+        isi = konten.get_text(" ", strip=True) if konten else ""
+
+        if not isi:
+            print(f"⚠️ Tidak ditemukan isi: {link}")
+
+        # Ambil tanggal dari <span class="date">
+        tgl_tag = soup.select_one("span.date")
+        tgl = None
+        if tgl_tag:
+            tgl_str_raw = tgl_tag.text.strip()  # Contoh: "Minggu 20-07-2025, 20:17 WIB"
+            print("🗓️ Ditemukan tanggal (mentah):", tgl_str_raw)
+            
+            # Ekstrak hanya bagian tanggal: 20-07-2025
+            match = re.search(r"\d{2}-\d{2}-\d{4}", tgl_str_raw)
+            if match:
+                try:
+                    tgl = datetime.strptime(match.group(), "%d-%m-%Y")
+                except Exception as e:
+                    print("❌ Gagal parsing tanggal:", match.group(), "->", e)
+
+        return isi, tgl
+
+    except Exception as e:
+        print("❌ Gagal ambil isi artikel:", e)
+        return "", None
