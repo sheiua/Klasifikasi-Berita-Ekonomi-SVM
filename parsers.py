@@ -175,20 +175,40 @@ def get_detail_lampost(link):
         print(f"❌ Gagal ambil detail: {link}, error: {e}")
         return None, ""
 
-def parse_portal_lampost(keyword="a", start_date=None, end_date=None, max_pages=3):
+def parse_portal_lampost(keyword='a', start_date=None, end_date=None, max_pages=3):
+    from datetime import datetime
+    from urllib.parse import urljoin
+    import requests
+    from bs4 import BeautifulSoup
+
+    def get_detail_lampost(link):
+        try:
+            r = requests.get(link, timeout=10)
+            soup = BeautifulSoup(r.content, "html.parser")
+
+            tgl_raw = soup.find("div", class_="jeg_meta_date")
+            tanggal = tgl_raw.text.strip().split("–")[0].strip() if tgl_raw else None
+
+            isi_konten = soup.find("div", class_="entry-content")
+            isi = isi_konten.get_text(separator="\n").strip() if isi_konten else None
+
+            return tanggal, isi
+        except Exception as e:
+            print(f"❌ Gagal ambil detail: {link}, error: {e}")
+            return None, None
+
     base_url = "https://lampost.co/page/{}?s={}"
     hasil = []
 
     for page in range(1, max_pages + 1):
         url = base_url.format(page, keyword)
-        print(f"🔎 Mengambil halaman: {url}")
         try:
             r = requests.get(url, timeout=10)
             soup = BeautifulSoup(r.content, "html.parser")
             list_artikel = soup.find_all("h3", class_="jeg_post_title")
 
             if not list_artikel:
-                print(f"⚠️ Tidak ada artikel di halaman {page}")
+                print(f"Tidak ada artikel di halaman {page}")
                 continue
 
             for artikel in list_artikel:
@@ -197,31 +217,26 @@ def parse_portal_lampost(keyword="a", start_date=None, end_date=None, max_pages=
                     continue
                 judul = a_tag.text.strip()
                 link = urljoin(url, a_tag["href"])
+                tanggal_str, isi = get_detail_lampost(link)
 
-                tanggal, isi = get_detail_lampost(link)
-                if not tanggal:
-                    continue
-
-                # Filter tanggal
-                if start_date and end_date:
-                    if not (start_date <= tanggal <= end_date):
-                        print(f"⏩ Lewat (tanggal tidak sesuai): {tanggal}")
+                if tanggal_str:
+                    try:
+                        tanggal_dt = datetime.strptime(tanggal_str, "%d %B %Y").date()
+                        if start_date and tanggal_dt < start_date:
+                            continue
+                        if end_date and tanggal_dt > end_date:
+                            continue
+                    except Exception as e:
+                        print(f"❌ Format tanggal salah: {tanggal_str}, error: {e}")
                         continue
 
-                print(f"📄 Artikel: {judul}")
-                print(f"📅 Tanggal: {tanggal}")
-
                 hasil.append({
+                    "tanggal": tanggal_str,
                     "judul": judul,
-                    "tanggal": tanggal,
                     "isi": isi,
                     "link": link
                 })
-
-                time.sleep(1)
-
         except Exception as e:
             print(f"❌ Gagal ambil halaman {page}: {e}")
 
-    print(f"✅ Total artikel dari Lampung Post: {len(hasil)}")
     return hasil
