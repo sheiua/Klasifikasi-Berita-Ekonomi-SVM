@@ -49,26 +49,12 @@ def parse_portal_antara(keyword=None, start_date=None, end_date=None, max_pages=
 
     def get_teks(soup):
         try:
-            # Coba semua kemungkinan struktur
-            kandidat = [
-                soup.find('article', itemprop="articleBody"),
-                soup.find('article'),
-                soup.find('div', class_="content-detail"),
-            ]
-    
-            konten = next((k for k in kandidat if k), None)
+            konten = soup.find('article', itemprop="articleBody")
             if not konten:
-                print("[Parser Antara] ❌ Konten artikel tidak ditemukan.")
                 return ""
-    
             paragraphs = konten.find_all('p')
-            isi = " ".join(p.get_text(strip=True) for p in paragraphs if not p.get("class"))
-            
-            # Potong jika ada "Baca juga:"
-            if "Baca juga:" in isi:
-                isi = isi.split("Baca juga:")[0]
-            
-            return isi.strip()
+            isi = " ".join(p.get_text(strip=True) for p in paragraphs if "ads_antaranews" not in p.get("class", []))
+            return isi.split("Baca juga:")[0]
         except Exception as e:
             print(f"[konten ERROR] {e}")
             return ""
@@ -91,8 +77,8 @@ def parse_portal_antara(keyword=None, start_date=None, end_date=None, max_pages=
                     continue
 
             judul = soup.find("h1").get_text(strip=True) if soup.find("h1") else "Tanpa Judul"
-            print(f"📅 Tanggal: {tanggal}")
-            print(f"📛 Judul: {judul}")
+            print(f"🗓️ Tanggal: {tanggal}")
+            print(f"💛 Judul: {judul}")
 
             results.append({
                 "judul": judul,
