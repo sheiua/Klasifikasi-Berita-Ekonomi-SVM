@@ -48,26 +48,23 @@ def parse_portal_antara(keyword=None, start_date=None, end_date=None, max_pages=
         return None
 
     def get_teks(soup):
-    try:
-        konten = soup.find('article', itemprop="articleBody") or soup.find('article', class_='article-content')
-        if not konten:
-            print("[Parser Antara] ❌ Konten artikel tidak ditemukan.")
+        try:
+            konten = soup.find('article', itemprop="articleBody") or soup.find('article', class_='article-content')
+            if not konten:
+                print("[Parser Antara] ❌ Konten artikel tidak ditemukan.")
+                return ""
+
+            paragraphs = konten.find_all('p')
+            isi = " ".join(
+                p.get_text(strip=True)
+                for p in paragraphs
+                if not p.get("class") or "ads_antaranews" not in p.get("class")
+            )
+            isi = isi.split("Baca juga:")[0]
+            return isi.strip()
+        except Exception as e:
+            print(f"[Parser Antara] 🚨 Error ambil konten: {e}")
             return ""
-
-        paragraphs = konten.find_all('p')
-        isi = " ".join(
-            p.get_text(strip=True)
-            for p in paragraphs
-            if not p.get("class") or "ads_antaranews" not in p.get("class")
-        )
-        
-        # Potong bagian "Baca juga" kalau ada
-        isi = isi.split("Baca juga:")[0]
-        return isi.strip()
-
-    except Exception as e:
-        print(f"[Parser Antara] 🚨 Error ambil konten: {e}")
-        return ""
 
     links = get_links()
 
@@ -132,11 +129,9 @@ def parse_portal_viva(max_pages=5):
 
                     detail_soup = BeautifulSoup(res.text, "html.parser")
 
-                    # Judul
                     title_tag = detail_soup.find("h1")
                     title = title_tag.get_text(strip=True) if title_tag else "Tidak ada judul"
 
-                    # Isi konten
                     paragraphs = detail_soup.find_all("p")
                     isi = "\n".join([p.get_text(strip=True) for p in paragraphs if p.get_text(strip=True)])
 
@@ -146,11 +141,9 @@ def parse_portal_viva(max_pages=5):
                         "isi": isi
                     })
 
-                    time.sleep(1)  # agar tidak diblok
-
+                    time.sleep(1)
                 except Exception as e:
                     print("Gagal mengambil detail artikel:", e)
-
         except Exception as e:
             print("Gagal membuka halaman utama:", e)
 
