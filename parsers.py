@@ -184,7 +184,7 @@ def get_isi_lampost(link):
         print("❌ Gagal ambil isi:", e)
         return "", None
 
-def parse_portal_radarlampung_beranda(start_date=None, end_date=None, max_pages=5):
+def parse_portal_radarlampung(start_date=None, end_date=None, max_pages=5):
     results = []
     for page in range(1, max_pages + 1):
         if page == 1:
