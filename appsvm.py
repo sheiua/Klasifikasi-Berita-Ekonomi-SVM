@@ -22,7 +22,8 @@ st.title("📡 Scraper & Klasifikasi Berita Ekonomi Lampung")
 portal = st.selectbox("📰 Pilih Portal Berita:", [
     "Antara News Lampung", 
     "Viva Lampung", 
-    "Lampung Post"
+    "Lampung Post",
+    "Radar Lampung"
 ])
 
 col1, col2 = st.columns(2)
