@@ -1,3 +1,8 @@
+import requests
+from bs4 import BeautifulSoup
+from datetime import datetime
+import time
+
 def parse_portal_antara(keyword=None, start_date=None, end_date=None, max_pages=10):
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
@@ -63,7 +68,8 @@ def parse_portal_antara(keyword=None, start_date=None, end_date=None, max_pages=
             results.append({
                 "link": link,
                 "tanggal": tanggal,
-                "teks": teks
+                "isi": teks,
+                "judul": judul
             })
 
             time.sleep(1)
