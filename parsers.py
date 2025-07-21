@@ -66,9 +66,10 @@ def parse_portal_antara(keyword=None, start_date=None, end_date=None, max_pages=
                     continue
 
             results.append({
+                "judul": judul,
                 "link": link,
                 "tanggal": tanggal,
-                "teks": teks
+                "isi": teks
             })
 
             time.sleep(1)
