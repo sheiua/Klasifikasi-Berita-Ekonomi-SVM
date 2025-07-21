@@ -6,7 +6,8 @@ from text_preprocessor import TextPreprocessor
 from parsers import (
     parse_portal_antara,
     parse_portal_viva,
-    parse_portal_lampost
+    parse_portal_lampost,
+    parse_portal_radarlampung
 )
 
 # ✅ Load model klasifikasi
@@ -42,6 +43,10 @@ parser_map = {
     },
     "Lampung Post": {
         "func": parse_portal_lampost,
+        "support_date": True
+    },
+    "Radar Lampung": {
+        "func": parse_portal_radarlampung,
         "support_date": True
     }
 }
