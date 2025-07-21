@@ -7,7 +7,7 @@ from parsers import (
     parse_portal_antara,
     parse_portal_viva,
     parse_portal_lampost,
-    parse_portal_lampungpro
+    parse_portal_lampungpro  # ✅ Ganti dari Radar Lampung
 )
 
 # ✅ Load model klasifikasi
@@ -23,7 +23,7 @@ portal = st.selectbox("📰 Pilih Portal Berita:", [
     "Antara News Lampung", 
     "Viva Lampung", 
     "Lampung Post",
-    "Lampungpro"
+    "Lampungpro"  # ✅ Ganti pilihan portal
 ])
 
 col1, col2 = st.columns(2)
@@ -48,7 +48,7 @@ parser_map = {
     },
     "Lampungpro": {
         "func": parse_portal_lampungpro,
-        "support_date": True  # karena kita filter saat scraping
+        "support_date": True  # ✅ karena kita filter saat scraping
     }
 }
 
@@ -78,7 +78,6 @@ if st.button("🚀 Mulai Scraping & Klasifikasi"):
     df = pd.DataFrame(hasil)
 
     if not df.empty and "tanggal" in df.columns and parser_info["support_date"]:
-        # Kalau support tanggal, filter ulang berdasarkan input user
         df['tanggal'] = pd.to_datetime(df['tanggal'], errors='coerce')
         df = df[(df['tanggal'] >= pd.to_datetime(start_date)) & (df['tanggal'] <= pd.to_datetime(end_date))]
 
