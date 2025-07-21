@@ -7,7 +7,7 @@ from parsers import (
     parse_portal_antara,
     parse_portal_viva,
     parse_portal_lampost,
-    parse_portal_radarlampung
+    parse_portal_lampungpro
 )
 
 # ✅ Load model klasifikasi
@@ -23,7 +23,7 @@ portal = st.selectbox("📰 Pilih Portal Berita:", [
     "Antara News Lampung", 
     "Viva Lampung", 
     "Lampung Post",
-    "Radar Lampung"
+    "Lampungpro"
 ])
 
 col1, col2 = st.columns(2)
@@ -46,9 +46,9 @@ parser_map = {
         "func": parse_portal_lampost,
         "support_date": True
     },
-    "Radar Lampung": {
-        "func": parse_portal_radarlampung,
-        "support_date": True
+    "Lampungpro": {
+        "func": parse_portal_lampungpro,
+        "support_date": True  # karena kita filter saat scraping
     }
 }
 
