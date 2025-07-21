@@ -36,19 +36,26 @@ def parse_portal_antara(keyword=None, start_date=None, end_date=None, max_pages=
 
     def get_tanggal(soup):
         try:
-            tag = soup.find("meta", {"property": "article:published_time"})
-            if tag:
-                raw = tag["content"].split("T")[0]  # Format: '2024-12-27T...'
-                return datetime.strptime(raw, "%Y-%m-%d").date()
-        except:
-            pass
+            time_tag = soup.find("time", itemprop="datePublished")
+            if time_tag and time_tag.has_attr("datetime"):
+                raw = time_tag["datetime"]  # Format: "Mon, 21 Jul 2025 09:27:54 +0700"
+                tanggal = raw.split(",")[1].strip().split(" ")[0:3]  # ['21', 'Jul', '2025']
+                date_str = " ".join(tanggal)  # '21 Jul 2025'
+                return datetime.strptime(date_str, "%d %b %Y").date()
+        except Exception as e:
+            print(f"[tanggal ERROR] {e}")
         return None
 
     def get_teks(soup):
         try:
-            konten = soup.find('div', itemprop="articleBody")
-            return konten.get_text(" ", strip=True).split("Baca juga:")[0]
-        except:
+            konten = soup.find('article', itemprop="articleBody")
+            if not konten:
+                return ""
+            paragraphs = konten.find_all('p')
+            isi = " ".join(p.get_text(strip=True) for p in paragraphs if "ads_antaranews" not in p.get("class", []))
+            return isi.split("Baca juga:")[0]  # jika ingin memotong bagian "Baca juga"
+        except Exception as e:
+            print(f"[konten ERROR] {e}")
             return ""
 
     links = get_links()
@@ -65,6 +72,7 @@ def parse_portal_antara(keyword=None, start_date=None, end_date=None, max_pages=
                 if tanggal is None or not (start_date <= tanggal <= end_date):
                     continue
 
+           judul = soup.find("h1").get_text(strip=True) if soup.find("h1") else "Tanpa Judul"
             results.append({
                 "judul": judul,
                 "link": link,
