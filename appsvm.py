@@ -72,6 +72,7 @@ if st.button("🚀 Mulai Scraping & Klasifikasi"):
     df = pd.DataFrame(hasil)
 
     if not df.empty and "tanggal" in df.columns and parser_info["support_date"]:
+        # Kalau support tanggal, filter ulang berdasarkan input user
         df['tanggal'] = pd.to_datetime(df['tanggal'], errors='coerce')
         df = df[(df['tanggal'] >= pd.to_datetime(start_date)) & (df['tanggal'] <= pd.to_datetime(end_date))]
 
