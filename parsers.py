@@ -185,86 +185,77 @@ def get_isi_lampost(link):
         return "", None
 
 def parse_portal_radarlampung(start_date=None, end_date=None, max_pages=5):
-    results = []
+    base_url = "https://radarlampung.disway.id"
+    articles = []
+
     for page in range(1, max_pages + 1):
-        if page == 1:
-            url = "https://radarlampung.disway.id/"
-        else:
-            url = f"https://radarlampung.disway.id/page/{page}"
+        url = f"{base_url}/?page={page}"
+        response = requests.get(url)
+        soup = BeautifulSoup(response.text, "html.parser")
+        items = soup.find_all("div", class_="title-box")
 
-        try:
-            resp = requests.get(url, timeout=10)
-            soup = BeautifulSoup(resp.text, "html.parser")
-            links = soup.select("div.media-heading a")
+        if not items:
+            break  # tidak ada lagi artikel
 
-            if not links:
-                print(f"⚠️ Tidak ada artikel di halaman {page}")
+        for item in items:
+            a_tag = item.find("a")
+            if not a_tag:
                 continue
 
-            for a in links:
-                link = a.get("href")
-                judul = a.text.strip()
-                isi, tanggal = get_isi_radarlampung(link)
+            link = base_url + a_tag.get("href", "")
+            judul = a_tag.get_text(strip=True)
 
-                if not isi or not tanggal:
-                    print(f"⛔ Lewat karena isi/tanggal kosong: {judul}")
-                    continue
+            # Ambil tanggal dari parent (ada di atasnya biasanya)
+            parent = item.find_parent("div", class_="col-lg-8")
+            tanggal_elem = parent.find("div", class_="date-news") if parent else None
+            tanggal_str = tanggal_elem.get_text(strip=True) if tanggal_elem else ""
 
-                # Filter tanggal
-                if start_date and tanggal.date() < start_date:
-                    print("⏩ Lewat karena sebelum rentang:", tanggal.date())
-                    continue
-                if end_date and tanggal.date() > end_date:
-                    print("⏩ Lewat karena setelah rentang:", tanggal.date())
-                    continue
+            try:
+                tanggal = datetime.strptime(tanggal_str, "%d %B %Y")
+            except:
+                tanggal = None
 
-                print("✅ Disimpan:", tanggal.date(), "| Judul:", judul)
+            # Filter by tanggal
+            if tanggal and start_date and tanggal < start_date:
+                continue
+            if tanggal and end_date and tanggal > end_date:
+                continue
 
-                results.append({
-                    "tanggal": tanggal.strftime("%Y-%m-%d"),
-                    "judul": judul,
-                    "link": link,
-                    "isi": isi
-                })
+            isi, editor = get_isi_radarlampung(link)
 
-                time.sleep(1)
+            articles.append({
+                "judul": judul,
+                "link": link,
+                "tanggal": tanggal,
+                "media": "Radar Lampung",
+                "editor": editor,
+                "isi": isi
+            })
 
-        except Exception as e:
-            print(f"❌ Gagal ambil halaman {page}: {e}")
-            continue
+    return articles
 
-    return results
-
-
-def get_isi_radarlampung(link):
+def get_isi_radarlampung(url):
     try:
-        resp = requests.get(link, timeout=10)
-        soup = BeautifulSoup(resp.text, "html.parser")
+        res = requests.get(url)
+        soup = BeautifulSoup(res.text, "html.parser")
+        content_div = soup.find("div", class_="article-content")
 
-        # Ambil isi konten utama
-        konten = soup.select_one("div.entry-content")
-        isi = konten.get_text(" ", strip=True) if konten else ""
+        if not content_div:
+            return "", ""
 
-        if not isi:
-            print(f"⚠️ Tidak ditemukan isi: {link}")
+        paragraphs = content_div.find_all("p")
+        isi = " ".join(p.get_text(strip=True) for p in paragraphs)
 
-        # Ambil tanggal dari <span class="date">
-        tgl_tag = soup.select_one("span.date")
-        tgl = None
-        if tgl_tag:
-            tgl_str_raw = tgl_tag.text.strip()  # Contoh: "Minggu 20-07-2025, 20:17 WIB"
-            print("🗓️ Ditemukan tanggal (mentah):", tgl_str_raw)
-            
-            # Ekstrak hanya bagian tanggal: 20-07-2025
-            match = re.search(r"\d{2}-\d{2}-\d{4}", tgl_str_raw)
-            if match:
-                try:
-                    tgl = datetime.strptime(match.group(), "%d-%m-%Y")
-                except Exception as e:
-                    print("❌ Gagal parsing tanggal:", match.group(), "->", e)
+        # Hapus 45 kata pertama dan 66 terakhir jika panjang cukup
+        words = isi.split()
+        if len(words) > 111:
+            isi = " ".join(words[45:-66])
 
-        return isi, tgl
+        # Editor
+        editor_elem = soup.find("div", class_="editor")
+        editor = editor_elem.get_text(strip=True) if editor_elem else ""
+
+        return isi, editor
 
     except Exception as e:
-        print("❌ Gagal ambil isi artikel:", e)
-        return "", None
+        return "", ""
