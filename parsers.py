@@ -203,35 +203,40 @@ def parse_portal_lampost(start_date=None, end_date=None, max_articles=100):
             print(f"[ERROR] Gagal ambil homepage: {e}")
             return []
 
-    def get_detail(link):
-        try:
-            r = requests.get(link, headers=headers, timeout=10)
-            soup = BeautifulSoup(r.content, "html.parser")
+def get_detail(link):
+    try:
+        r = requests.get(link, headers=headers, timeout=10)
+        soup = BeautifulSoup(r.content, "html.parser")
 
-            judul = soup.find("h1").get_text(strip=True) if soup.find("h1") else "Tanpa Judul"
+        judul = soup.find("h1").get_text(strip=True) if soup.find("h1") else "Tanpa Judul"
 
-            # Coba ambil tanggal dari detail
-            tanggal = None
-            meta_date = soup.select_one("div.jeg_meta_date a")
-            if meta_date:
-                raw = meta_date.get_text(strip=True).split(" -")[0]
-                try:
-                    tanggal = datetime.strptime(raw, "%y/%m/%d").date()
-                except Exception as e:
-                    print(f"❌ Error parsing tanggal detail: {e}")
+        # Ambil tanggal dari meta
+        tanggal = None
+        meta_date = soup.select_one("div.jeg_meta_date a")
+        if meta_date:
+            raw = meta_date.get_text(strip=True).split(" -")[0]
+            try:
+                tanggal = datetime.strptime(raw, "%y/%m/%d").date()
+            except Exception as e:
+                print(f"❌ Error parsing tanggal detail: {e}")
 
-            # Ambil isi
-            konten = soup.select_one("div.single-post-content") or soup.select_one("div.content-berita")
-            if not konten:
-                return judul, tanggal, ""
+        # Ambil isi dari beberapa fallback
+        konten = (
+            soup.select_one("div.single-post-content") or
+            soup.select_one("div.content-berita") or
+            soup.select_one("div.entry-content") or
+            soup.find("article")
+        )
+        if not konten:
+            return judul, tanggal, ""
 
-            paragraphs = konten.find_all("p")
-            isi = "\n".join(p.get_text(strip=True) for p in paragraphs if p.get_text(strip=True))
+        paragraphs = konten.find_all("p")
+        isi = "\n".join(p.get_text(strip=True) for p in paragraphs if p.get_text(strip=True))
 
-            return judul, tanggal, isi.strip()
-        except Exception as e:
-            print(f"[ERROR] Gagal ambil detail: {e}")
-            return "Error", None, ""
+        return judul, tanggal, isi.strip()
+    except Exception as e:
+        print(f"[ERROR] Gagal ambil detail: {e}")
+        return "Error", None, ""
 
     links = get_links()
 
