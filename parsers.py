@@ -151,23 +151,17 @@ def parse_portal_viva(keyword=None, start_date=None, end_date=None, max_pages=10
 
     return results
     
-def parse_portal_lampost(start_date=None, end_date=None, max_articles=100):
-    import requests
-    from bs4 import BeautifulSoup
-    from datetime import datetime
-    import time
-
+def parse_portal_lampost(start_date=None, end_date=None, max_articles=50):
     headers = {
-        "User-Agent": "Mozilla/5.0"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
     }
-
+    base_url = "https://lampost.co/"
     results = []
 
-    def get_links():
-        url = "https://lampost.co/"
-        print(f"🔄 Mengambil artikel dari homepage: {url}")
+    def get_homepage_links():
+        print(f"🔄 Mengambil artikel dari homepage: {base_url}")
         try:
-            r = requests.get(url, headers=headers, timeout=10)
+            r = requests.get(base_url, headers=headers, timeout=10)
             print(f"Status: {r.status_code}")
             if r.status_code != 200:
                 return []
@@ -175,16 +169,13 @@ def parse_portal_lampost(start_date=None, end_date=None, max_articles=100):
             soup = BeautifulSoup(r.content, "html.parser")
             cards = soup.select("div.card-body")
             links = []
-
             for card in cards:
                 a_tag = card.find("a", href=True)
-                if not a_tag:
-                    continue
-                href = a_tag["href"]
-                if not href.startswith("http"):
-                    href = "https://lampost.co" + href
-                links.append(href)
-
+                if a_tag:
+                    href = a_tag["href"]
+                    if not href.startswith("http"):
+                        href = "https://lampost.co" + href
+                    links.append(href)
             print(f"✅ Ditemukan {len(links)} artikel dari halaman utama")
             return links
         except Exception as e:
@@ -194,64 +185,61 @@ def parse_portal_lampost(start_date=None, end_date=None, max_articles=100):
     def get_detail(link):
         try:
             r = requests.get(link, headers=headers, timeout=10)
+            if r.status_code != 200:
+                print(f"❌ Gagal akses: {link}")
+                return None
+
             soup = BeautifulSoup(r.content, "html.parser")
 
-            judul = soup.find("h1").get_text(strip=True) if soup.find("h1") else "Tanpa Judul"
-
-            # Ambil tanggal dari tag <div class="jeg_meta_date"><a>25/07/25 - 07:00</a></div>
+            # Ambil tanggal dari detail
+            tanggal_tag = soup.find("div", class_="jeg_meta_date")
             tanggal = None
-            meta_date = soup.select_one("div.jeg_meta_date a")
-            if meta_date:
-                raw = meta_date.get_text(strip=True).split(" -")[0]
+            if tanggal_tag:
+                raw_text = tanggal_tag.get_text(strip=True)
                 try:
-                    tanggal = datetime.strptime(raw, "%y/%m/%d").date()
+                    tanggal_str = raw_text.split("-")[0].strip()  # e.g., "25/07/25"
+                    tanggal = datetime.strptime(tanggal_str, "%d/%m/%y").date()
                     print(f"🗓️ Tanggal dari detail: {tanggal}")
                 except Exception as e:
-                    print(f"❌ Error parsing tanggal detail: {e}")
+                    print(f"❌ Error parsing tanggal: {e}")
 
-            # Ambil isi dari beberapa kemungkinan struktur
-            konten = (
-                soup.select_one("div.single-post-content") or
-                soup.select_one("div.content-berita") or
-                soup.select_one("div.entry-content") or
-                soup.find("article")
-            )
-            if not konten:
-                return judul, tanggal, ""
+            # Filter tanggal
+            if start_date and end_date:
+                if tanggal is None:
+                    print(f"⏩ Lewat (tidak ada tanggal): {link}")
+                    return None
+                if not (start_date <= tanggal <= end_date):
+                    print(f"⏩ Lewat (tanggal tidak sesuai): {tanggal}")
+                    return None
 
-            paragraphs = konten.find_all("p")
+            # Ambil judul dan isi
+            judul = soup.find("h1").get_text(strip=True) if soup.find("h1") else "Tanpa Judul"
+            konten = soup.select_one("div.single-post-content") or soup.select_one("div.content-berita")
+            paragraphs = konten.find_all("p") if konten else []
             isi = "\n".join(p.get_text(strip=True) for p in paragraphs if p.get_text(strip=True))
 
-            return judul, tanggal, isi.strip()
+            return {
+                "judul": judul,
+                "link": link,
+                "tanggal": tanggal,
+                "isi": isi.strip()
+            }
         except Exception as e:
-            print(f"[ERROR] Gagal ambil detail: {e}")
-            return "Error", None, ""
+            print(f"[ERROR] Gagal parsing detail: {e}")
+            return None
 
-    links = get_links()
+    links = get_homepage_links()
+    print("🚀 Mulai ambil detail artikel...\n")
 
     for i, link in enumerate(links):
         if i >= max_articles:
             break
-        print(f"\n📄 Artikel ke-{i+1}")
+        print(f"📄 Artikel ke-{i+1}")
         print(f"🔗 Link: {link}")
-        judul, tanggal, isi = get_detail(link)
-
-        if start_date and end_date:
-            if tanggal is None or not (start_date <= tanggal <= end_date):
-                print(f"⏩ Lewat (tanggal tidak sesuai): {tanggal}")
-                continue
-
-        print(f"📅 Tanggal: {tanggal}")
-        print(f"📛 Judul: {judul}")
-
-        results.append({
-            "judul": judul,
-            "link": link,
-            "tanggal": tanggal,
-            "isi": isi
-        })
-
-        time.sleep(1)
+        detail = get_detail(link)
+        if detail:
+            results.append(detail)
+        time.sleep(0.5)  # Jangan terlalu cepat
 
     print(f"\n🎯 Total artikel berhasil diambil: {len(results)}")
     return results
