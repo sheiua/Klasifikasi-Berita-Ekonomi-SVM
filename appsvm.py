@@ -92,7 +92,7 @@ if st.button("🚀 Mulai Scraping & Klasifikasi"):
         st.dataframe(df[['link']].head())
 
     for i, item in enumerate(hasil):
-    st.write(f"{i+1}. {item.get('judul')} | tanggal: {item.get('tanggal')} | isi panjang: {len(item.get('isi', ''))}")
+        st.write(f"{i+1}. {item.get('judul')} | tanggal: {item.get('tanggal')} | isi panjang: {len(item.get('isi', ''))}")
 
     # ✅ Validasi isi teks artikel
     if "isi" not in df.columns or df["isi"].isnull().all() or df["isi"].str.strip().eq("").all():
