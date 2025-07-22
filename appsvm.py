@@ -62,6 +62,8 @@ if st.button("🚀 Mulai Scraping & Klasifikasi"):
 
     if 'max_pages' in args:
         kwargs['max_pages'] = 30
+    if 'max_articles' in args:
+        kwargs['max_articles'] = 100
     if 'start_date' in args:
         kwargs['start_date'] = start_date
     if 'end_date' in args:
