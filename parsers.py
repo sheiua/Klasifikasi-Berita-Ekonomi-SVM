@@ -205,7 +205,6 @@ def parse_portal_lampost(start_date=None, end_date=None, max_articles=50):
                     tanggal = datetime.strptime(tanggal_str, "%d/%m/%y").date()
                 except Exception as e:
                     print(f"❌ Error parsing tanggal: {e}")
-                    tanggal = None
 
             # Ambil isi
             konten = soup.select_one("div.single-post-content") or soup.select_one("div.content-berita")
@@ -240,7 +239,7 @@ def parse_portal_lampost(start_date=None, end_date=None, max_articles=50):
 
     print(f"\n📊 Total sebelum filter tanggal: {len(results)}")
 
-    # Filter tanggal satu kali di akhir
+    # ✅ Filter tanggal satu kali di akhir
     if start_date and end_date:
         filtered = []
         for item in results:
