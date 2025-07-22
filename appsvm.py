@@ -8,6 +8,7 @@ from parsers import (
     parse_portal_viva,
     parse_portal_lampost
 )
+import inspect  # ✅ Untuk cek parameter parser
 
 # ✅ Load model klasifikasi
 @st.cache_resource
@@ -48,12 +49,24 @@ if st.button("🚀 Mulai Scraping & Klasifikasi"):
         st.error("❌ Parser untuk portal tidak ditemukan.")
         st.stop()
 
-    # 🔄 Panggil parser dengan rentang tanggal
-    hasil = parse_function(
-        max_pages=30,
-        start_date=start_date,
-        end_date=end_date
-    )
+    # ✅ Cek parameter yang diterima oleh fungsi parser
+    sig = inspect.signature(parse_function)
+    args = sig.parameters
+    kwargs = {}
+
+    if 'max_pages' in args:
+        kwargs['max_pages'] = 30
+    if 'start_date' in args:
+        kwargs['start_date'] = start_date
+    if 'end_date' in args:
+        kwargs['end_date'] = end_date
+
+    # 🔄 Panggil parser dengan parameter yang sesuai
+    try:
+        hasil = parse_function(**kwargs)
+    except Exception as e:
+        st.error(f"❌ Gagal memanggil parser: {e}")
+        st.stop()
 
     if not hasil:
         st.warning("⚠️ Tidak ada artikel ditemukan.")
