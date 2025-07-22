@@ -50,7 +50,7 @@ if st.button("🚀 Mulai Scraping & Klasifikasi"):
 
     # 🔄 Panggil parser dengan rentang tanggal
     hasil = parse_function(
-        max_pages=15,
+        max_pages=30,
         start_date=start_date,
         end_date=end_date
     )
