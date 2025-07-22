@@ -152,100 +152,94 @@ def parse_portal_viva(keyword=None, start_date=None, end_date=None, max_pages=10
 
     return results
 
-def get_detail_lampost(link):
-    try:
-        r = requests.get(link, timeout=10)
-        soup = BeautifulSoup(r.content, "html.parser")
-
-        # Ambil tanggal
-        tgl_raw = soup.find("div", class_="jeg_meta_date")
-        tanggal = None
-        if tgl_raw:
-            raw_text = tgl_raw.text.strip().split("–")[0].strip()
-            try:
-                tanggal = datetime.strptime(raw_text, "%d %B %Y").date()
-            except:
-                pass
-
-        # Ambil isi artikel
-        isi_konten = soup.find("div", class_="entry-content")
-        isi = isi_konten.get_text(separator="\n").strip() if isi_konten else ""
-
-        return tanggal, isi
-    except Exception as e:
-        print(f"❌ Gagal ambil detail: {link}, error: {e}")
-        return None, ""
-
-def parse_portal_lampost(keyword=None, start_date=None, end_date=None, max_pages=10):
-    base_url = "https://lampost.co/kategori/lampung"
+def parse_portal_lampost(start_date=None, end_date=None):
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
     }
-
     results = []
 
-    def get_list_links(page):
-        url = f"{base_url}/{page}" if page > 1 else base_url
-        res = requests.get(url, headers=headers)
-        if res.status_code != 200:
+    def get_links():
+        url = "https://lampost.co/"
+        print(f"🔄 Mengambil artikel dari homepage: {url}")
+        try:
+            r = requests.get(url, headers=headers, timeout=10)
+            print(f"Status: {r.status_code}")
+            if r.status_code != 200:
+                return []
+
+            soup = BeautifulSoup(r.content, "html.parser")
+            cards = soup.select("div.card-body")
+            links = []
+            for card in cards:
+                a_tag = card.find("a", href=True)
+                if not a_tag: continue
+
+                href = a_tag["href"]
+                if not href.startswith("http"):
+                    href = "https://lampost.co" + href
+
+                tanggal_tag = card.select_one("span.text-muted")
+                if not tanggal_tag:
+                    tanggal = None
+                else:
+                    tanggal_text = tanggal_tag.get_text(strip=True)
+                    try:
+                        tanggal = datetime.strptime(tanggal_text.split(" -")[0], "%y/%m/%d").date()
+                    except Exception as e:
+                        print(f"❌ Error parsing tanggal: {e}")
+                        tanggal = None
+
+                links.append((href, tanggal))
+
+            print(f"✅ Ditemukan {len(links)} artikel dari halaman utama")
+            return links
+        except Exception as e:
+            print(f"[ERROR] Gagal ambil homepage: {e}")
             return []
 
-        soup = BeautifulSoup(res.content, "html.parser")
-        articles = soup.find_all("article", class_="jeg_post")
-
-        links_data = []
-        for article in articles:
-            link_tag = article.find("h3", class_="jeg_post_title")
-            date_tag = article.find("div", class_="jeg_meta_date")
-
-            if link_tag and link_tag.find("a") and date_tag:
-                link = link_tag.find("a")["href"]
-                tanggal_text = date_tag.get_text(strip=True)
-
-                try:
-                    tanggal_dt = datetime.strptime(tanggal_text, "%d/%m/%Y").date()
-                except:
-                    continue
-
-                links_data.append({
-                    "link": link,
-                    "tanggal": tanggal_dt
-                })
-        return links_data
-
-    def get_detail(link):
-        res = requests.get(link, headers=headers)
-        if res.status_code != 200:
+    def get_teks(soup):
+        try:
+            konten = soup.select_one("div.single-post-content") or soup.select_one("div.content-berita")
+            if not konten:
+                return ""
+            paragraphs = konten.find_all("p")
+            isi = "\n".join(p.get_text(strip=True) for p in paragraphs if p.get_text(strip=True))
+            return isi.strip()
+        except Exception as e:
+            print(f"[ERROR konten] {e}")
             return ""
 
-        soup = BeautifulSoup(res.content, "html.parser")
-        konten_tag = soup.find("div", class_="content-inner")
-        isi = ""
-        if konten_tag:
-            paragraphs = konten_tag.find_all("p")
-            isi = "\n".join(p.get_text(strip=True) for p in paragraphs)
-        return isi
+    links = get_links()
 
-    for page in range(1, max_pages + 1):
-        links_info = get_list_links(page)
-        if not links_info:
-            break
+    for i, (link, tanggal) in enumerate(links):
+        try:
+            print(f"\n📄 Artikel ke-{i+1}")
+            print(f"🔗 Link: {link}")
+            if start_date and end_date:
+                if tanggal is None or not (start_date <= tanggal <= end_date):
+                    print(f"⏩ Lewat (tanggal tidak sesuai): {tanggal}")
+                    continue
 
-        for info in links_info:
-            tanggal_dt = info["tanggal"]
-            if start_date and tanggal_dt < start_date:
-                continue
-            if end_date and tanggal_dt > end_date:
-                continue
+            r = requests.get(link, headers=headers, timeout=10)
+            soup = BeautifulSoup(r.content, "html.parser")
 
-            isi = get_detail(info["link"])
-            if isi.strip():  # hanya simpan artikel yang ada isinya
-                results.append({
-                    "tanggal": tanggal_dt,
-                    "link": info["link"],
-                    "isi": isi
-                })
+            judul = soup.find("h1").get_text(strip=True) if soup.find("h1") else "Tanpa Judul"
+            isi = get_teks(soup)
 
-        time.sleep(1)  # agar tidak dianggap spam
+            print(f"📅 Tanggal: {tanggal}")
+            print(f"📛 Judul: {judul}")
 
+            results.append({
+                "judul": judul,
+                "link": link,
+                "tanggal": tanggal,
+                "isi": isi
+            })
+
+            time.sleep(1)
+        except Exception as e:
+            print(f"[ERROR] Gagal scraping artikel: {e}")
+            continue
+
+    print(f"\n🎯 Total artikel berhasil diambil: {len(results)}")
     return results
