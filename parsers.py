@@ -196,12 +196,13 @@ def parse_portal_lampost(start_date=None, end_date=None, max_articles=50):
             if tanggal_tag:
                 raw = tanggal_tag.get_text(strip=True)
                 try:
-                    tanggal_str = raw.split("-")[0].strip()  # e.g. "25/07/25"
+                    tanggal_str = raw.split("-")[0].strip()  # Contoh: "25/07/25"
                     tanggal = datetime.strptime(tanggal_str, "%d/%m/%y").date()
                 except Exception as e:
                     print(f"❌ Error parsing tanggal: {e}")
+                    tanggal = None
 
-            # Ambil isi
+            # Ambil isi artikel
             konten = soup.select_one("div.single-post-content") or soup.select_one("div.content-berita")
             isi = ""
             if konten:
@@ -221,7 +222,7 @@ def parse_portal_lampost(start_date=None, end_date=None, max_articles=50):
             return None
 
     links = get_homepage_links()
-    print("\n🚀 Mulai ambil detail artikel...\n")
+    print("🚀 Mulai ambil detail artikel...\n")
 
     for i, link in enumerate(links):
         if i >= max_articles:
@@ -229,13 +230,18 @@ def parse_portal_lampost(start_date=None, end_date=None, max_articles=50):
         print(f"📄 Artikel ke-{i+1}: {link}")
         detail = get_detail(link)
         if detail:
-            print(f"🗓️ Tanggal: {detail['tanggal']} | Panjang isi: {len(detail['isi'])}")
             results.append(detail)
         time.sleep(0.5)
 
-    # Filter tanggal hanya sekali di sini
-    if start_date and end_date:
-        results = [r for r in results if r["tanggal"] is None or (start_date <= r["tanggal"] <= end_date)]
+    print(f"\n🧹 Total artikel sebelum filter: {len(results)}")
 
-    print(f"\n🌿 Total artikel berhasil diambil: {len(results)}")
+    # ✅ Filter tanggal di sini (sekali saja)
+    if start_date and end_date:
+        results = [
+            item for item in results
+            if item["tanggal"] is not None and start_date <= item["tanggal"] <= end_date
+        ]
+        print(f"🎯 Total artikel setelah filter tanggal: {len(results)}")
+
     return results
+
