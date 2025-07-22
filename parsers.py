@@ -202,10 +202,12 @@ def parse_portal_lampost(start_date=None, end_date=None, max_articles=50):
                     print(f"❌ Error parsing tanggal: {e}")
                     tanggal = None
 
-            if start_date and end_date:
-                if tanggal is None:
-                    print(f"⏩ Lewat (tidak ada tanggal): {link}")
-                    return None
+                # ⏳ Filter tanggal hanya jika tanggal tersedia
+                if start_date and end_date:
+                    if tanggal is not None and not (start_date <= tanggal <= end_date):
+                        print(f"⏩ Lewat (tanggal tidak sesuai): {tanggal}")
+                        continue
+
                 if not (start_date <= tanggal <= end_date):
                     print(f"⏩ Lewat (tanggal tidak sesuai): {tanggal}")
                     return None
