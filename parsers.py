@@ -152,11 +152,6 @@ def parse_portal_viva(keyword=None, start_date=None, end_date=None, max_pages=10
     return results
     
 def parse_portal_lampost(start_date=None, end_date=None, max_articles=50):
-    import requests
-    from bs4 import BeautifulSoup
-    from datetime import datetime
-    import time
-
     headers = {
         "User-Agent": "Mozilla/5.0"
     }
@@ -201,7 +196,7 @@ def parse_portal_lampost(start_date=None, end_date=None, max_articles=50):
             if tanggal_tag:
                 raw = tanggal_tag.get_text(strip=True)
                 try:
-                    tanggal_str = raw.split("-")[0].strip()
+                    tanggal_str = raw.split("-")[0].strip()  # e.g. "25/07/25"
                     tanggal = datetime.strptime(tanggal_str, "%d/%m/%y").date()
                 except Exception as e:
                     print(f"❌ Error parsing tanggal: {e}")
@@ -226,7 +221,7 @@ def parse_portal_lampost(start_date=None, end_date=None, max_articles=50):
             return None
 
     links = get_homepage_links()
-    print("🚀 Mulai ambil detail artikel...\n")
+    print("\n🚀 Mulai ambil detail artikel...\n")
 
     for i, link in enumerate(links):
         if i >= max_articles:
@@ -234,24 +229,13 @@ def parse_portal_lampost(start_date=None, end_date=None, max_articles=50):
         print(f"📄 Artikel ke-{i+1}: {link}")
         detail = get_detail(link)
         if detail:
+            print(f"🗓️ Tanggal: {detail['tanggal']} | Panjang isi: {len(detail['isi'])}")
             results.append(detail)
         time.sleep(0.5)
 
-    print(f"\n📊 Total sebelum filter tanggal: {len(results)}")
-
-    # ✅ Filter tanggal satu kali di akhir
+    # Filter tanggal hanya sekali di sini
     if start_date and end_date:
-        filtered = []
-        for item in results:
-            tgl = item.get("tanggal")
-            if tgl is None:
-                print(f"⚠️ Artikel tanpa tanggal tetap dimasukkan.")
-                filtered.append(item)
-            elif start_date <= tgl <= end_date:
-                filtered.append(item)
-            else:
-                print(f"⏩ Lewat (tanggal tidak sesuai): {tgl}")
-        results = filtered
+        results = [r for r in results if r["tanggal"] is None or (start_date <= r["tanggal"] <= end_date)]
 
-    print(f"🎯 Total artikel berhasil diambil: {len(results)}")
+    print(f"\n🌿 Total artikel berhasil diambil: {len(results)}")
     return results
