@@ -154,7 +154,7 @@ def parse_portal_viva(keyword=None, start_date=None, end_date=None, max_pages=10
 
 def parse_portal_lampost(start_date=None, end_date=None):
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
     }
     results = []
 
@@ -179,15 +179,15 @@ def parse_portal_lampost(start_date=None, end_date=None):
                     href = "https://lampost.co" + href
 
                 tanggal_tag = card.select_one("span.text-muted")
-                if not tanggal_tag:
-                    tanggal = None
-                else:
-                    tanggal_text = tanggal_tag.get_text(strip=True)
+                if tanggal_tag:
+                    tanggal_text = tanggal_tag.get_text(strip=True).split(" -")[0].strip()
                     try:
-                        tanggal = datetime.strptime(tanggal_text.split(" -")[0], "%y/%m/%d").date()
+                        tanggal = datetime.strptime(tanggal_text, "%y/%m/%d").date()
                     except Exception as e:
                         print(f"❌ Error parsing tanggal: {e}")
                         tanggal = None
+                else:
+                    tanggal = None
 
                 links.append((href, tanggal))
 
@@ -215,13 +215,31 @@ def parse_portal_lampost(start_date=None, end_date=None):
         try:
             print(f"\n📄 Artikel ke-{i+1}")
             print(f"🔗 Link: {link}")
-            if start_date and end_date:
-                if tanggal is None or not (start_date <= tanggal <= end_date):
-                    print(f"⏩ Lewat (tanggal tidak sesuai): {tanggal}")
-                    continue
 
             r = requests.get(link, headers=headers, timeout=10)
             soup = BeautifulSoup(r.content, "html.parser")
+
+            # Ambil tanggal dari detail jika belum ada
+            if tanggal is None:
+                try:
+                    detail_tag = soup.select_one("div.jeg_meta_date")
+                    if detail_tag:
+                        raw_date = detail_tag.get_text(strip=True).split("-")[0].strip()
+                        tanggal = datetime.strptime(raw_date, "%d/%m/%y").date()
+                        print(f"🗓️ Tanggal dari detail: {tanggal}")
+                except Exception as e:
+                    print(f"❌ Gagal ambil tanggal dari detail: {e}")
+
+            # Filter berdasarkan rentang tanggal
+            if start_date and end_date and tanggal:
+                if isinstance(start_date, datetime): start_date = start_date.date()
+                if isinstance(end_date, datetime): end_date = end_date.date()
+                if not (start_date <= tanggal <= end_date):
+                    print(f"⏩ Lewat (tanggal tidak sesuai): {tanggal}")
+                    continue
+            elif (start_date or end_date) and not tanggal:
+                print(f"⏩ Lewat (masih tidak ada tanggal): {tanggal}")
+                continue
 
             judul = soup.find("h1").get_text(strip=True) if soup.find("h1") else "Tanpa Judul"
             isi = get_teks(soup)
