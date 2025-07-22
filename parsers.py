@@ -159,7 +159,7 @@ def parse_portal_lampost(start_date=None, end_date=None):
 
     def get_links():
         url = "https://lampost.co/"
-        print(f"🔄 Mengambil artikel dari homepage: {url}")
+        print(f"\n🔄 Mengambil artikel dari homepage: {url}")
         try:
             r = requests.get(url, headers=headers, timeout=10)
             print(f"Status: {r.status_code}")
@@ -169,27 +169,19 @@ def parse_portal_lampost(start_date=None, end_date=None):
             soup = BeautifulSoup(r.content, "html.parser")
             cards = soup.select("div.card-body")
             links = []
+
             for card in cards:
                 a_tag = card.find("a", href=True)
                 if not a_tag:
                     continue
+
                 href = a_tag["href"]
                 if not href.startswith("http"):
                     href = "https://lampost.co" + href
 
-                # Ambil tanggal dari homepage (opsional)
-                tanggal = None
-                tanggal_tag = card.select_one("span.text-muted")
-                if tanggal_tag:
-                    try:
-                        raw = tanggal_tag.get_text(strip=True)
-                        tanggal = datetime.strptime(raw.split(" -")[0], "%y/%m/%d").date()
-                    except Exception as e:
-                        print(f"❌ Error parsing tanggal: {e}")
-                        tanggal = None
+                links.append(href)
 
-                links.append((href, tanggal))
-            print(f"✅ Ditemukan {len(links)} artikel dari halaman utama")
+            print(f"✅ Ditemukan {len(links)} artikel dari homepage")
             return links
         except Exception as e:
             print(f"[ERROR] Gagal ambil homepage: {e}")
@@ -197,11 +189,12 @@ def parse_portal_lampost(start_date=None, end_date=None):
 
     def get_detail_tanggal(soup):
         try:
-            tag = soup.select_one("div.jeg_meta_date, div.text-muted")
-            if tag:
-                raw = tag.get_text(strip=True)
-                tanggal = datetime.strptime(raw.split(" -")[0], "%d/%m/%y").date()
-                print(f"🗓️ Tanggal dari detail: {tanggal}")
+            tgl_tag = soup.find("span", class_="text-muted")
+            if tgl_tag:
+                raw = tgl_tag.get_text(strip=True)
+                print(f"🧪 Raw tanggal detail: {raw}")
+                # Contoh format: "21/07/25 -  16:19"
+                tanggal = datetime.strptime(raw.split(" -")[0], "%y/%m/%d").date()
                 return tanggal
         except Exception as e:
             print(f"❌ Error parsing tanggal: {e}")
@@ -221,7 +214,7 @@ def parse_portal_lampost(start_date=None, end_date=None):
 
     links = get_links()
 
-    for i, (link, tanggal) in enumerate(links):
+    for i, link in enumerate(links):
         try:
             print(f"\n📄 Artikel ke-{i+1}")
             print(f"🔗 Link: {link}")
@@ -229,15 +222,18 @@ def parse_portal_lampost(start_date=None, end_date=None):
             r = requests.get(link, headers=headers, timeout=10)
             soup = BeautifulSoup(r.content, "html.parser")
 
-            # Ambil tanggal detail jika belum ada
-            if not tanggal:
-                tanggal = get_detail_tanggal(soup)
+            tanggal = get_detail_tanggal(soup)
+            if tanggal:
+                print(f"🗓️ Tanggal dari detail: {tanggal}")
+            else:
+                print("⚠️ Tidak ada tanggal dari detail")
 
+            # Filter tanggal
             if start_date and end_date:
                 if tanggal is None:
-                    print(f"⏩ Lewat (tidak ada tanggal): {tanggal}")
+                    print(f"⚠️ Lewat (tidak ada tanggal): {tanggal}")
                     continue
-                if not (start_date <= tanggal <= end_date):
+                elif not (start_date <= tanggal <= end_date):
                     print(f"⏩ Lewat (tanggal tidak sesuai): {tanggal}")
                     continue
 
@@ -245,7 +241,7 @@ def parse_portal_lampost(start_date=None, end_date=None):
             isi = get_teks(soup)
 
             print(f"📅 Tanggal: {tanggal}")
-            print(f"📛 Judul: {judul}")
+            print(f"📛 Judul: {judul[:60]}...")
 
             results.append({
                 "judul": judul,
