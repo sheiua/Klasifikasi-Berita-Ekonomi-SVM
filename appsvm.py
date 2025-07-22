@@ -49,7 +49,13 @@ if st.button("🚀 Mulai Scraping & Klasifikasi"):
         st.error("❌ Parser untuk portal tidak ditemukan.")
         st.stop()
 
-    # ✅ Cek parameter yang diterima oleh fungsi parser
+    # ✅ Konversi tanggal datetime -> date jika perlu
+    if isinstance(start_date, datetime):
+        start_date = start_date.date()
+    if isinstance(end_date, datetime):
+        end_date = end_date.date()
+
+    # ✅ Cek parameter fungsi parser
     sig = inspect.signature(parse_function)
     args = sig.parameters
     kwargs = {}
@@ -61,7 +67,10 @@ if st.button("🚀 Mulai Scraping & Klasifikasi"):
     if 'end_date' in args:
         kwargs['end_date'] = end_date
 
-    # 🔄 Panggil parser dengan parameter yang sesuai
+    # Debug parameter
+    st.text(f"⏳ Parameter dikirim ke parser: {kwargs}")
+
+    # 🔄 Panggil parser
     try:
         hasil = parse_function(**kwargs)
     except Exception as e:
