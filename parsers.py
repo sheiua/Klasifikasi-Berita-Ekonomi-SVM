@@ -150,7 +150,7 @@ def parse_portal_viva(keyword=None, start_date=None, end_date=None, max_pages=10
         print(f"[Viva ERROR] {e}")
 
     return results
-
+    
 def parse_portal_lampost(start_date=None, end_date=None):
     headers = {
         "User-Agent": "Mozilla/5.0"
@@ -169,7 +169,6 @@ def parse_portal_lampost(start_date=None, end_date=None):
             soup = BeautifulSoup(r.content, "html.parser")
             cards = soup.select("div.card-body")
             links = []
-
             for card in cards:
                 a_tag = card.find("a", href=True)
                 if not a_tag:
@@ -179,26 +178,25 @@ def parse_portal_lampost(start_date=None, end_date=None):
                 if not href.startswith("http"):
                     href = "https://lampost.co" + href
 
-                links.append(href)
+                tanggal_tag = card.select_one("span.text-muted")
+                if not tanggal_tag:
+                    tanggal = None
+                else:
+                    tanggal_text = tanggal_tag.get_text(strip=True)
+                    try:
+                        tanggal_raw = tanggal_text.split(" -")[0].strip()
+                        tanggal = datetime.strptime(tanggal_raw, "%y/%m/%d").date()
+                    except Exception as e:
+                        print(f"❌ Error parsing tanggal: {e}")
+                        tanggal = None
 
-            print(f"✅ Ditemukan {len(links)} artikel dari homepage")
+                links.append((href, tanggal))
+
+            print(f"✅ Ditemukan {len(links)} artikel dari halaman utama")
             return links
         except Exception as e:
             print(f"[ERROR] Gagal ambil homepage: {e}")
             return []
-
-    def get_detail_tanggal(soup):
-        try:
-            tgl_tag = soup.find("span", class_="text-muted")
-            if tgl_tag:
-                raw = tgl_tag.get_text(strip=True)
-                print(f"🧪 Raw tanggal detail: {raw}")
-                # Contoh format: "21/07/25 -  16:19"
-                tanggal = datetime.strptime(raw.split(" -")[0], "%y/%m/%d").date()
-                return tanggal
-        except Exception as e:
-            print(f"❌ Error parsing tanggal: {e}")
-        return None
 
     def get_teks(soup):
         try:
@@ -214,34 +212,26 @@ def parse_portal_lampost(start_date=None, end_date=None):
 
     links = get_links()
 
-    for i, link in enumerate(links):
+    for i, (link, tanggal) in enumerate(links):
         try:
             print(f"\n📄 Artikel ke-{i+1}")
             print(f"🔗 Link: {link}")
 
-            r = requests.get(link, headers=headers, timeout=10)
-            soup = BeautifulSoup(r.content, "html.parser")
-
-            tanggal = get_detail_tanggal(soup)
-            if tanggal:
-                print(f"🗓️ Tanggal dari detail: {tanggal}")
-            else:
-                print("⚠️ Tidak ada tanggal dari detail")
-
-            # Filter tanggal
             if start_date and end_date:
                 if tanggal is None:
-                    print(f"⚠️ Lewat (tidak ada tanggal): {tanggal}")
-                    continue
+                    print(f"⚠️ Artikel tanpa tanggal dimasukkan karena tidak bisa dicek rentangnya.")
                 elif not (start_date <= tanggal <= end_date):
                     print(f"⏩ Lewat (tanggal tidak sesuai): {tanggal}")
                     continue
+
+            r = requests.get(link, headers=headers, timeout=10)
+            soup = BeautifulSoup(r.content, "html.parser")
 
             judul = soup.find("h1").get_text(strip=True) if soup.find("h1") else "Tanpa Judul"
             isi = get_teks(soup)
 
             print(f"📅 Tanggal: {tanggal}")
-            print(f"📛 Judul: {judul[:60]}...")
+            print(f"📛 Judul: {judul}")
 
             results.append({
                 "judul": judul,
