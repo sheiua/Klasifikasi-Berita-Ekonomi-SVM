@@ -176,12 +176,6 @@ def get_detail_lampost(link):
         print(f"❌ Gagal ambil detail: {link}, error: {e}")
         return None, ""
 
-import requests
-from bs4 import BeautifulSoup
-from datetime import datetime
-import time
-import re
-
 def parse_portal_lampost(keyword=None, start_date=None, end_date=None, max_pages=10):
     base_url = "https://lampost.co/kategori/lampung"
     headers = {
@@ -197,68 +191,61 @@ def parse_portal_lampost(keyword=None, start_date=None, end_date=None, max_pages
             return []
 
         soup = BeautifulSoup(res.content, "html.parser")
-        cards = soup.find_all("div", class_="jeg_postblock_content")
-        links = []
-        for card in cards:
-            a_tag = card.find("a")
-            if a_tag and a_tag["href"].startswith("http"):
-                links.append(a_tag["href"])
-        return links
+        articles = soup.find_all("article", class_="jeg_post")
 
-    def parse_tanggal_lampost(raw_text):
-        # Format yang dicari: 24/07/24 - 10:20
-        match = re.search(r"\d{2}/\d{2}/\d{2} - \d{2}:\d{2}", raw_text)
-        if match:
-            return match.group()
-        return None
+        links_data = []
+        for article in articles:
+            link_tag = article.find("h3", class_="jeg_post_title")
+            date_tag = article.find("div", class_="jeg_meta_date")
+
+            if link_tag and link_tag.find("a") and date_tag:
+                link = link_tag.find("a")["href"]
+                tanggal_text = date_tag.get_text(strip=True)
+
+                try:
+                    tanggal_dt = datetime.strptime(tanggal_text, "%d/%m/%Y").date()
+                except:
+                    continue
+
+                links_data.append({
+                    "link": link,
+                    "tanggal": tanggal_dt
+                })
+        return links_data
 
     def get_detail(link):
         res = requests.get(link, headers=headers)
         if res.status_code != 200:
-            return None
+            return ""
 
         soup = BeautifulSoup(res.content, "html.parser")
-
-        # Ambil tanggal dari meta
-        tanggal_tag = soup.find("div", class_="jeg_meta_date")
-        tanggal_str = parse_tanggal_lampost(tanggal_tag.text) if tanggal_tag else None
-
-        if not tanggal_str:
-            return None
-
-        try:
-            tanggal_dt = datetime.strptime(tanggal_str, "%y/%m/%d - %H:%M").date()
-        except:
-            return None
-
-        if start_date and tanggal_dt < start_date:
-            return None
-        if end_date and tanggal_dt > end_date:
-            return None
-
-        # Ambil isi artikel
         konten_tag = soup.find("div", class_="content-inner")
         isi = ""
         if konten_tag:
             paragraphs = konten_tag.find_all("p")
             isi = "\n".join(p.get_text(strip=True) for p in paragraphs)
-
-        return {
-            "tanggal": tanggal_dt,
-            "link": link,
-            "isi": isi
-        }
+        return isi
 
     for page in range(1, max_pages + 1):
-        links = get_list_links(page)
-        if not links:
+        links_info = get_list_links(page)
+        if not links_info:
             break
 
-        for link in links:
-            detail = get_detail(link)
-            if detail:
-                results.append(detail)
+        for info in links_info:
+            tanggal_dt = info["tanggal"]
+            if start_date and tanggal_dt < start_date:
+                continue
+            if end_date and tanggal_dt > end_date:
+                continue
 
-        time.sleep(1)  # Hindari terlalu cepat agar tidak diblok
+            isi = get_detail(info["link"])
+            if isi.strip():  # hanya simpan artikel yang ada isinya
+                results.append({
+                    "tanggal": tanggal_dt,
+                    "link": info["link"],
+                    "isi": isi
+                })
+
+        time.sleep(1)  # agar tidak dianggap spam
 
     return results
