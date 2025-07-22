@@ -153,57 +153,55 @@ def parse_portal_viva(keyword=None, start_date=None, end_date=None, max_pages=10
     
 def parse_portal_lampost(start_date=None, end_date=None, max_articles=50):
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
+        "User-Agent": "Mozilla/5.0"
     }
     base_url = "https://lampost.co/"
     results = []
 
     def get_homepage_links():
-        print(f"🔄 Mengambil artikel dari homepage: {base_url}")
         try:
-            r = requests.get(base_url, headers=headers, timeout=10)
-            print(f"Status: {r.status_code}")
-            if r.status_code != 200:
+            print(f"🔄 Mengambil artikel dari homepage: {base_url}")
+            res = requests.get(base_url, headers=headers, timeout=10)
+            print(f"Status: {res.status_code}")
+            if res.status_code != 200:
                 return []
 
-            soup = BeautifulSoup(r.content, "html.parser")
+            soup = BeautifulSoup(res.content, "html.parser")
             cards = soup.select("div.card-body")
             links = []
             for card in cards:
-                a_tag = card.find("a", href=True)
-                if a_tag:
-                    href = a_tag["href"]
-                    if not href.startswith("http"):
-                        href = "https://lampost.co" + href
-                    links.append(href)
-            print(f"✅ Ditemukan {len(links)} artikel dari halaman utama")
+                a = card.find("a", href=True)
+                if a:
+                    link = a["href"]
+                    if not link.startswith("http"):
+                        link = "https://lampost.co" + link
+                    links.append(link)
+
+            print(f"✅ Ditemukan {len(links)} link dari homepage")
             return links
         except Exception as e:
-            print(f"[ERROR] Gagal ambil homepage: {e}")
+            print(f"[ERROR homepage] {e}")
             return []
 
     def get_detail(link):
         try:
-            r = requests.get(link, headers=headers, timeout=10)
-            if r.status_code != 200:
-                print(f"❌ Gagal akses: {link}")
+            res = requests.get(link, headers=headers, timeout=10)
+            if res.status_code != 200:
                 return None
-
-            soup = BeautifulSoup(r.content, "html.parser")
+            soup = BeautifulSoup(res.content, "html.parser")
 
             # Ambil tanggal dari detail
             tanggal_tag = soup.find("div", class_="jeg_meta_date")
             tanggal = None
             if tanggal_tag:
-                raw_text = tanggal_tag.get_text(strip=True)
+                raw = tanggal_tag.get_text(strip=True)
                 try:
-                    tanggal_str = raw_text.split("-")[0].strip()  # e.g., "25/07/25"
+                    tanggal_str = raw.split("-")[0].strip()  # e.g. "25/07/25"
                     tanggal = datetime.strptime(tanggal_str, "%d/%m/%y").date()
-                    print(f"🗓️ Tanggal dari detail: {tanggal}")
                 except Exception as e:
                     print(f"❌ Error parsing tanggal: {e}")
+                    tanggal = None
 
-            # Filter tanggal
             if start_date and end_date:
                 if tanggal is None:
                     print(f"⏩ Lewat (tidak ada tanggal): {link}")
@@ -212,20 +210,23 @@ def parse_portal_lampost(start_date=None, end_date=None, max_articles=50):
                     print(f"⏩ Lewat (tanggal tidak sesuai): {tanggal}")
                     return None
 
-            # Ambil judul dan isi
-            judul = soup.find("h1").get_text(strip=True) if soup.find("h1") else "Tanpa Judul"
+            # Ambil isi
             konten = soup.select_one("div.single-post-content") or soup.select_one("div.content-berita")
-            paragraphs = konten.find_all("p") if konten else []
-            isi = "\n".join(p.get_text(strip=True) for p in paragraphs if p.get_text(strip=True))
+            isi = ""
+            if konten:
+                paragraphs = konten.find_all("p")
+                isi = "\n".join(p.get_text(strip=True) for p in paragraphs if p.get_text(strip=True))
+
+            judul = soup.find("h1").get_text(strip=True) if soup.find("h1") else "Tanpa Judul"
 
             return {
                 "judul": judul,
                 "link": link,
                 "tanggal": tanggal,
-                "isi": isi.strip()
+                "isi": isi
             }
         except Exception as e:
-            print(f"[ERROR] Gagal parsing detail: {e}")
+            print(f"[ERROR detail] {e}")
             return None
 
     links = get_homepage_links()
@@ -234,12 +235,11 @@ def parse_portal_lampost(start_date=None, end_date=None, max_articles=50):
     for i, link in enumerate(links):
         if i >= max_articles:
             break
-        print(f"📄 Artikel ke-{i+1}")
-        print(f"🔗 Link: {link}")
+        print(f"📄 Artikel ke-{i+1}: {link}")
         detail = get_detail(link)
         if detail:
             results.append(detail)
-        time.sleep(0.5)  # Jangan terlalu cepat
+        time.sleep(0.5)
 
     print(f"\n🎯 Total artikel berhasil diambil: {len(results)}")
     return results
