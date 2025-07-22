@@ -2,7 +2,6 @@ import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
 import time
-import re
 
 def parse_portal_antara(keyword=None, start_date=None, end_date=None, max_pages=10):
     headers = {
