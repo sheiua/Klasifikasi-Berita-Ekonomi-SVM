@@ -152,6 +152,11 @@ def parse_portal_viva(keyword=None, start_date=None, end_date=None, max_pages=10
     return results
     
 def parse_portal_lampost(start_date=None, end_date=None, max_articles=50):
+    import requests
+    from bs4 import BeautifulSoup
+    from datetime import datetime
+    import time
+
     headers = {
         "User-Agent": "Mozilla/5.0"
     }
@@ -168,6 +173,7 @@ def parse_portal_lampost(start_date=None, end_date=None, max_articles=50):
 
             soup = BeautifulSoup(res.content, "html.parser")
             cards = soup.select("div.card-body")
+            print(f"✅ Jumlah .card-body ditemukan: {len(cards)}")
             links = []
             for card in cards:
                 a = card.find("a", href=True)
@@ -177,58 +183,59 @@ def parse_portal_lampost(start_date=None, end_date=None, max_articles=50):
                         link = "https://lampost.co" + link
                     links.append(link)
 
-            print(f"✅ Ditemukan {len(links)} link dari homepage")
+            print(f"✅ Total link ditemukan: {len(links)}")
             return links
         except Exception as e:
             print(f"[ERROR homepage] {e}")
             return []
 
-def get_detail(link):
-    try:
-        res = requests.get(link, headers=headers, timeout=10)
-        if res.status_code != 200:
+    def get_detail(link):
+        try:
+            res = requests.get(link, headers=headers, timeout=10)
+            if res.status_code != 200:
+                return None
+            soup = BeautifulSoup(res.content, "html.parser")
+
+            # Ambil tanggal dari detail
+            tanggal_tag = soup.find("div", class_="jeg_meta_date")
+            tanggal = None
+            if tanggal_tag:
+                raw = tanggal_tag.get_text(strip=True)
+                try:
+                    tanggal_str = raw.split("-")[0].strip()  # e.g. "25/07/25"
+                    tanggal = datetime.strptime(tanggal_str, "%d/%m/%y").date()
+                except Exception as e:
+                    print(f"❌ Error parsing tanggal: {e}")
+                    tanggal = None
+
+            # Filter berdasarkan tanggal jika tersedia
+            if start_date and end_date:
+                if tanggal is None:
+                    print(f"⏩ Lewat (tidak ada tanggal): {tanggal}")
+                    return None
+                if not (start_date <= tanggal <= end_date):
+                    print(f"⏩ Lewat (tanggal tidak sesuai): {tanggal}")
+                    return None
+
+            # Ambil isi
+            konten = soup.select_one("div.single-post-content") or soup.select_one("div.content-berita")
+            isi = ""
+            if konten:
+                paragraphs = konten.find_all("p")
+                isi = "\n".join(p.get_text(strip=True) for p in paragraphs if p.get_text(strip=True))
+
+            judul = soup.find("h1").get_text(strip=True) if soup.find("h1") else "Tanpa Judul"
+
+            return {
+                "judul": judul,
+                "link": link,
+                "tanggal": tanggal,
+                "isi": isi
+            }
+        except Exception as e:
+            print(f"[ERROR detail] {e}")
             return None
-        soup = BeautifulSoup(res.content, "html.parser")
 
-        # Ambil tanggal dari detail
-        tanggal_tag = soup.find("div", class_="jeg_meta_date")
-        tanggal = None
-        if tanggal_tag:
-            raw = tanggal_tag.get_text(strip=True)
-            try:
-                tanggal_str = raw.split("-")[0].strip()  # e.g. "25/07/25"
-                tanggal = datetime.strptime(tanggal_str, "%d/%m/%y").date()
-            except Exception as e:
-                print(f"❌ Error parsing tanggal: {e}")
-
-        # Filter berdasarkan tanggal jika tersedia
-        if start_date and end_date:
-            if tanggal is None:
-                print(f"⏩ Lewat (tidak ada tanggal): {tanggal}")
-                return None
-            if not (start_date <= tanggal <= end_date):
-                print(f"⏩ Lewat (tanggal tidak sesuai): {tanggal}")
-                return None
-
-        # Ambil isi
-        konten = soup.select_one("div.single-post-content") or soup.select_one("div.content-berita")
-        isi = ""
-        if konten:
-            paragraphs = konten.find_all("p")
-            isi = "\n".join(p.get_text(strip=True) for p in paragraphs if p.get_text(strip=True))
-
-        judul = soup.find("h1").get_text(strip=True) if soup.find("h1") else "Tanpa Judul"
-
-        return {
-            "judul": judul,
-            "link": link,
-            "tanggal": tanggal,
-            "isi": isi
-        }
-    except Exception as e:
-        print(f"[ERROR detail] {e}")
-        return None
-        
     links = get_homepage_links()
     print("🚀 Mulai ambil detail artikel...\n")
 
