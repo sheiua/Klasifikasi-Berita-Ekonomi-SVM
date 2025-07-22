@@ -151,12 +151,12 @@ def parse_portal_viva(keyword=None, start_date=None, end_date=None, max_pages=10
 
     return results
     
-import requests
-from bs4 import BeautifulSoup
-from datetime import datetime
-import time
-
 def parse_portal_lampost(start_date=None, end_date=None, max_articles=50):
+    import requests
+    from bs4 import BeautifulSoup
+    from datetime import datetime
+    import time
+
     headers = {
         "User-Agent": "Mozilla/5.0"
     }
@@ -196,8 +196,8 @@ def parse_portal_lampost(start_date=None, end_date=None, max_articles=50):
             soup = BeautifulSoup(res.content, "html.parser")
 
             # Ambil tanggal dari detail
-            tanggal = None
             tanggal_tag = soup.find("div", class_="jeg_meta_date")
+            tanggal = None
             if tanggal_tag:
                 raw = tanggal_tag.get_text(strip=True)
                 try:
@@ -208,13 +208,7 @@ def parse_portal_lampost(start_date=None, end_date=None, max_articles=50):
                     print(f"❌ Error parsing tanggal: {e}")
                     tanggal = None
 
-            # Filter tanggal hanya jika tanggal tersedia dan parameter tanggal diisi
-            if start_date and end_date and tanggal is not None:
-                if not (start_date <= tanggal <= end_date):
-                    print(f"⏩ Lewat (tanggal tidak sesuai): {tanggal}")
-                    return None
-
-            # Ambil isi artikel
+            # Ambil isi
             konten = soup.select_one("div.single-post-content") or soup.select_one("div.content-berita")
             isi = ""
             if konten:
@@ -234,7 +228,7 @@ def parse_portal_lampost(start_date=None, end_date=None, max_articles=50):
             return None
 
     links = get_homepage_links()
-    print("\n🚀 Mulai ambil detail artikel...")
+    print("🚀 Mulai ambil detail artikel...\n")
 
     for i, link in enumerate(links):
         if i >= max_articles:
@@ -245,6 +239,21 @@ def parse_portal_lampost(start_date=None, end_date=None, max_articles=50):
             results.append(detail)
         time.sleep(0.5)
 
-    print(f"\n🎯 Total artikel berhasil diambil: {len(results)}")
-    return results
+    print(f"\n🔍 Total sebelum filter tanggal: {len(results)}")
 
+    # Filter tanggal SEKALI SAJA DI AKHIR
+    if start_date and end_date:
+        filtered = []
+        for item in results:
+            tgl = item.get("tanggal")
+            if tgl and start_date <= tgl <= end_date:
+                filtered.append(item)
+            elif not tgl:
+                print(f"⚠️ Artikel tanpa tanggal tetap dimasukkan.")
+                filtered.append(item)
+            else:
+                print(f"⏩ Lewat (tanggal tidak sesuai): {tgl}")
+        results = filtered
+
+    print(f"🎯 Total artikel berhasil diambil: {len(results)}")
+    return results
