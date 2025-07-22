@@ -201,9 +201,8 @@ def parse_portal_lampost(start_date=None, end_date=None, max_articles=50):
             if tanggal_tag:
                 raw = tanggal_tag.get_text(strip=True)
                 try:
-                    tanggal_str = raw.split("-")[0].strip()  # e.g. "25/07/25"
+                    tanggal_str = raw.split("-")[0].strip()
                     tanggal = datetime.strptime(tanggal_str, "%d/%m/%y").date()
-                    print(f"🗓️ Tanggal dari detail: {tanggal}")
                 except Exception as e:
                     print(f"❌ Error parsing tanggal: {e}")
                     tanggal = None
@@ -239,17 +238,17 @@ def parse_portal_lampost(start_date=None, end_date=None, max_articles=50):
             results.append(detail)
         time.sleep(0.5)
 
-    print(f"\n🔍 Total sebelum filter tanggal: {len(results)}")
+    print(f"\n📊 Total sebelum filter tanggal: {len(results)}")
 
-    # Filter tanggal SEKALI SAJA DI AKHIR
+    # Filter tanggal satu kali di akhir
     if start_date and end_date:
         filtered = []
         for item in results:
             tgl = item.get("tanggal")
-            if tgl and start_date <= tgl <= end_date:
-                filtered.append(item)
-            elif not tgl:
+            if tgl is None:
                 print(f"⚠️ Artikel tanpa tanggal tetap dimasukkan.")
+                filtered.append(item)
+            elif start_date <= tgl <= end_date:
                 filtered.append(item)
             else:
                 print(f"⏩ Lewat (tanggal tidak sesuai): {tgl}")
