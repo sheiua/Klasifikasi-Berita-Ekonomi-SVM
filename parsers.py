@@ -176,10 +176,16 @@ def get_detail_lampost(link):
         print(f"❌ Gagal ambil detail: {link}, error: {e}")
         return None, ""
 
+import requests
+from bs4 import BeautifulSoup
+from datetime import datetime
+import time
+import re
+
 def parse_portal_lampost(keyword=None, start_date=None, end_date=None, max_pages=10):
-    base_url = "https://lampost.co/berita-terkini"
+    base_url = "https://lampost.co/kategori/lampung"
     headers = {
-        "User-Agent": "Mozilla/5.0"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
     }
 
     results = []
@@ -195,11 +201,12 @@ def parse_portal_lampost(keyword=None, start_date=None, end_date=None, max_pages
         links = []
         for card in cards:
             a_tag = card.find("a")
-            if a_tag:
+            if a_tag and a_tag["href"].startswith("http"):
                 links.append(a_tag["href"])
         return links
 
     def parse_tanggal_lampost(raw_text):
+        # Format yang dicari: 24/07/24 - 10:20
         match = re.search(r"\d{2}/\d{2}/\d{2} - \d{2}:\d{2}", raw_text)
         if match:
             return match.group()
@@ -252,6 +259,6 @@ def parse_portal_lampost(keyword=None, start_date=None, end_date=None, max_pages
             if detail:
                 results.append(detail)
 
-        time.sleep(1)
+        time.sleep(1)  # Hindari terlalu cepat agar tidak diblok
 
     return results
